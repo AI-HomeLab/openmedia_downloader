@@ -1,4 +1,5 @@
 node_modules/
+.codegraph/
 .tools/android-sdk/
 .tools/.gradle/
 .tools/jdk-21
