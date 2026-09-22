@@ -1,3 +1,5 @@
 packages:
   - 'apps/*'
   - 'plugins/*'
+allowBuilds:
+  esbuild: true

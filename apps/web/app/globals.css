@@ -1,0 +1,42 @@
+:root {
+  --bg: #111;
+  --fg: #eee;
+  --accent: #4da3ff;
+  --danger: #ff5c5c;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, sans-serif;
+  /* 手勢列安全區：主要按鈕不被遮擋 */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+main {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 96px;
+}
+button {
+  min-height: 44px;
+  min-width: 44px;
+  font-size: 16px;
+}
+input[type='text'] {
+  width: 100%;
+  min-height: 44px;
+  font-size: 16px;
+}
+.progress {
+  height: 12px;
+  background: #333;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.progress > div {
+  height: 100%;
+  background: var(--accent);
+}
+.error { color: var(--danger); }
+.row { display: flex; gap: 8px; margin: 12px 0; }

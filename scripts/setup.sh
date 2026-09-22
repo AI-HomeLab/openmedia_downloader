@@ -2,7 +2,7 @@
 # pnpm setup：一鍵建置專案本地工具鏈（冪等，已存在的會跳過）。
 # 裝的東西全在 .tools/（不進版控、不碰系統）：
 #   .tools/jdk-21            -> Temurin JDK 21（有 javac；已有可用 JDK 21 則跳過下載）
-#   .tools/android-sdk/      -> cmdline-tools + platform-tools + platforms;android-35 + build-tools;35.0.0
+#   .tools/android-sdk/      -> cmdline-tools + platform-tools + platforms;android-35/36 + build-tools;35.0.0
 # 限定 Linux x86_64。裝完下一步：corepack pnpm install，然後 pnpm android:test。
 set -euo pipefail
 
@@ -12,7 +12,7 @@ SDK="$TOOLS/android-sdk"
 
 # ---- 版本 pin（升級改這裡） ----
 CMDLINE_ZIP="commandlinetools-linux-11076708_latest.zip"
-SDK_PACKAGES=("platform-tools" "platforms;android-35" "build-tools;35.0.0")
+SDK_PACKAGES=("platform-tools" "platforms;android-35" "platforms;android-36" "build-tools;35.0.0")
 
 if [ "$(uname -s)" != "Linux" ] || [ "$(uname -m)" != "x86_64" ]; then
   echo "error: setup 只支援 Linux x86_64（現在是 $(uname -s)/$(uname -m)）" >&2
@@ -49,6 +49,7 @@ export JAVA_HOME="$JDK"
 # ---- 2. Android SDK：缺件才補 ----
 need_sdk=false
 [ -d "$SDK/platforms/android-35" ] || need_sdk=true
+[ -d "$SDK/platforms/android-36" ] || need_sdk=true
 [ -d "$SDK/build-tools/35.0.0" ] || need_sdk=true
 [ -x "$SDK/platform-tools/adb" ] || need_sdk=true
 
@@ -71,7 +72,25 @@ else
   echo "==> Android SDK 已有，跳過下載"
 fi
 
-# ---- 3. 驗收 ----
+# ---- 3. 模擬器（opt-in：SETUP_EMULATOR=1 pnpm setup，才裝約 3GB） ----
+if [ "${SETUP_EMULATOR:-0}" = "1" ]; then
+  export ANDROID_AVD_HOME="$TOOLS/.android/avd"
+  export ANDROID_SDK_HOME="$TOOLS/.android"
+  mkdir -p "$ANDROID_AVD_HOME"
+  set +o pipefail # 見上：yes 收 SIGPIPE 會回 141
+  yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" \
+    --sdk_root="$SDK" --install "emulator" \
+    "system-images;android-35;google_apis;x86_64" >/dev/null
+  set -o pipefail
+  if [ ! -d "$ANDROID_AVD_HOME/omd-35.avd" ]; then
+    echo "no" | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd \
+      -n omd-35 -k "system-images;android-35;google_apis;x86_64" \
+      --device "pixel_7" --force >/dev/null
+  fi
+  echo "==> emulator AVD omd-35 就緒（開機：emulator -avd omd-35 -no-window -no-audio）"
+fi
+
+# ---- 4. 驗收 ----
 echo "==> 驗收"
 "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" --list_installed 2>/dev/null \
   | grep -E "build-tools|platform-tools|platforms" || true

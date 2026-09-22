@@ -17,12 +17,13 @@ Android APK 專案（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin �
 
 ## 工具鏈現況（已驗證，別重裝）
 
-- SDK 在 `.tools/android-sdk`（build-tools 35.0.0 + platform-35），`gradle.sh` 自動指過去，
+- SDK 在 `.tools/android-sdk`（build-tools 35.0.0 + platform-35/36），`gradle.sh` 自動指過去，
   不需 export、不需裝 Android Studio。看到 ANDROID_HOME 報錯先查 `.tools/` 還在不在。
 - JDK 用 `.tools/jdk-21`（symlink，Temurin 完整 JDK）。**系統 `/usr/lib/jvm/java-21-*` 是 JRE，
   沒有 javac**，`gradle.sh` 會跳過它；`JAVA_HOME` 被指到舊版時先清掉再查。
 - `GRADLE_USER_HOME` 預設收進 `.tools/.gradle`；`.tools/` 全不進版控（見 `.gitignore`）。
-- 版本 pin（AGP 8.7.3 / Gradle 8.11.1 / compile+target 35 / minSdk 29 / Capacitor 8）
+- 版本 pin（AGP 8.13.0 / Gradle 8.14.3 / compile+target 36 / minSdk 29 / Capacitor 8，
+  皆由 `cap add` 帶入，以 repo 內為準）
   見 rules §3.1，升級要開獨立 ticket。
 
 ## Repo 現況與邊界

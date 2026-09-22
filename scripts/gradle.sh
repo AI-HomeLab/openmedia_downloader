@@ -18,8 +18,7 @@ if [ ! -f "$ROOT/android/gradlew" ]; then
 fi
 
 if [ -z "${ANDROID_HOME:-}" ] || [ ! -d "${ANDROID_HOME}" ]; then
-  echo "error: ANDROID_HOME 未指向可用 SDK（例：export ANDROID_HOME=\$HOME/Android/Sdk）" >&2
-  echo "       先裝 Android Studio + SDK Platform 35，見 README〈環境需求〉" >&2
+  echo "error: ANDROID_HOME 未指向可用 SDK（先跑 pnpm setup）" >&2
   exit 2
 fi
 

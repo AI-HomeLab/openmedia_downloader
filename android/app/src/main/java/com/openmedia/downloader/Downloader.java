@@ -56,7 +56,14 @@ public final class Downloader {
         final YtDlpResponse response;
         try {
             response = YtDlp.execute(request, callback);
+        } catch (RuntimeException e) {
+            // 進度回呼的取消控制流：原樣重拋，不包成 DownloadException。
+            throw e;
         } catch (YtDlpException e) {
+            DownloadCancelled cancelled = findCancelled(e);
+            if (cancelled != null) {
+                throw cancelled;
+            }
             throw new DownloadException(
                     ErrorMapper.fromMessage(e.getMessage()), "下載失敗", e);
         }
@@ -69,6 +76,16 @@ public final class Downloader {
             throw new DownloadException(DownloadError.STORAGE, "下載成功但找不到檔案");
         }
         return landed;
+    }
+
+    private static DownloadCancelled findCancelled(Throwable t) {
+        while (t != null) {
+            if (t instanceof DownloadCancelled) {
+                return (DownloadCancelled) t;
+            }
+            t = t.getCause();
+        }
+        return null;
     }
 
     private static Set<String> listNames(File dir) {

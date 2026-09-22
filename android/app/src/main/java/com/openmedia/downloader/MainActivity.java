@@ -1,20 +1,25 @@
 package com.openmedia.downloader;
 
-import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
-import android.widget.TextView;
 
-/**
- * Pre-Capacitor 佔位 Activity：證明 Gradle 骨架可編譯、可打包。
- * 接入 Capacitor 後會換成 BridgeActivity（由 cap add 產生），此檔到時移除或改寫。
- */
-public class MainActivity extends Activity {
+import androidx.core.app.ActivityCompat;
+
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(YtDlpPlugin.class);
         super.onCreate(savedInstanceState);
-        TextView view = new TextView(this);
-        view.setText("OpenMedia — scaffold");
-        view.setTextSize(24);
-        setContentView(view);
+        // API 33+ 通知是危險權限：沒它前景服務跑得動，只是通知不顯示。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
+        }
     }
 }

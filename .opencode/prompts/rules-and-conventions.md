@@ -63,8 +63,8 @@
 | Next.js / React | 16.x / 19（scaffold 時 pin minor） | `output: 'export'`，禁 API Route/SSR |
 | Capacitor | 8.x（`@capacitor/cli ^8.5.1`） | 支援 API 24+；本專案 minSdk 29 相容 |
 | JDK | **21** | Capacitor 8 建議值；AGP 8.x 最低 17；`scripts/gradle.sh` 會檢查 |
-| AGP / Gradle | 8.7.3 / 8.11.1（wrapper） | Capacitor 7/8 配對基準 |
-| compileSdk / targetSdk | 35 | 與 AGP 8.7.3 配對；Play 上架要求 |
+| AGP / Gradle | 8.13.0 / 8.14.3（wrapper，`cap add` 帶入） | Capacitor 8.5 配對；以 repo 內為準 |
+| compileSdk / targetSdk | 36 | `variables.gradle`；Play 上架要求 |
 | minSdk | 29 | 即 Android 10+（見 README〈Android 10+ 支援〉） |
 | Chaquopy + CPython | 17.0.0 + Python 3.13 | 16.0 起支援 3.13；3.13 利於 16KB page 裝置 |
 | yt-dlp-android | Maven Central `dev.ffmpegkit-maintained:yt-dlp-android:2.0.2` | 無 resolve API（只回 exit code）；免費版僅 arm64-v8a + x86_64 |

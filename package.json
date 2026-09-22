@@ -24,5 +24,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.1"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2"
   }
 }

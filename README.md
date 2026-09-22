@@ -54,8 +54,8 @@ UI 跑在手機 WebView，下載能力經由**自訂 YtDlp Capacitor Plugin** �
 | Node | 22+（`.node-version` 為準，現為 24） | Capacitor 8 要求 Node 22+ |
 | pnpm | 11.x（`packageManager` pin，只用 `corepack pnpm`） | `pnpm-lock.yaml` 唯一，不混用 npm/yarn |
 | JDK | **21** | Capacitor 8 建議值；AGP 8.x 最低 17（本機系統 JDK 21 直用） |
-| Android SDK | **專案本地 `.tools/android-sdk`**（build-tools 35.0.0 + platform-35 + platform-tools） | 已裝好！`source .tools/env.sh` 或直接跑 `pnpm android:*`（`scripts/gradle.sh` 會自動指過去）；不需裝 Android Studio |
-| AGP / Gradle | 8.7.3 / 8.11.1（`gradle-wrapper.properties` 為準） | 只走 `scripts/gradle.sh`，不用系統 gradle |
+| Android SDK | **專案本地 `.tools/android-sdk`**（build-tools 35.0.0 + platform-35/36 + platform-tools） | 已裝好！`source .tools/env.sh` 或直接跑 `pnpm android:*`（`scripts/gradle.sh` 會自動指過去）；不需裝 Android Studio |
+| AGP / Gradle | 8.13.0 / 8.14.3（`gradle-wrapper.properties` 為準，`cap add` 帶入） | 只走 `scripts/gradle.sh`，不用系統 gradle |
 | 實機 / emulator | Android 10+、13+、15 各一台（或映像） | 見〈Android 10+ 支援〉 |
 
 完整版本基準見 `.opencode/prompts/rules-and-conventions.md §3.1`（升級要開獨立 ticket）。
@@ -197,7 +197,7 @@ pnpm android:connected       # 有真機/emulator 且動到下載鏈時加跑
 | 合併失敗 | FFmpeg 是否缺席、有無保留原檔並回 `POSTPROCESS` |
 | 存檔找不到 / 權限拒絕 | 是否寫死路徑、有無用 MediaStore/app-specific、測過的 API level（29/33/35 行為不同） |
 | Gradle 失敗 | `java -version` 是否 21、是否經 `scripts/gradle.sh`、有無跑過 `cap:sync` |
-| `pnpm android:*` 直接報錯 | `ANDROID_HOME` 是否存在（沒裝 SDK 是預期的，先裝 SDK Platform 35） |
+| `pnpm android:*` 直接報錯 | `ANDROID_HOME` 是否存在（先跑 `pnpm setup` 補 SDK） |
 
 ## 合規提醒
 
