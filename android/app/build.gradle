@@ -12,6 +12,7 @@ android {
         targetSdk 35
         versionCode 1
         versionName '0.1.0'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
     buildTypes {
@@ -30,5 +31,14 @@ android {
 }
 
 dependencies {
+    // yt-dlp-android（Maven Central）：Chaquopy CPython 3.13 + yt-dlp in-AAR，只 pin 版號
+    implementation 'dev.ffmpegkit-maintained:yt-dlp-android:2.0.2'
+
+    // org.json 真實作：android.jar 內的是 stub，單元測試要加這個才跑得動
+    testImplementation 'org.json:json:20240303'
     testImplementation 'junit:junit:4.13.2'
+
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:core:1.6.1'
 }

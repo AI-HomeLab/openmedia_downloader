@@ -67,7 +67,7 @@
 | compileSdk / targetSdk | 35 | 與 AGP 8.7.3 配對；Play 上架要求 |
 | minSdk | 29 | 即 Android 10+（見 README〈Android 10+ 支援〉） |
 | Chaquopy + CPython | 17.0.0 + Python 3.13 | 16.0 起支援 3.13；3.13 利於 16KB page 裝置 |
-| yt-dlp-android | `ffmpegkit-maintained`（JitPack pin 版號） | Chaquopy 3.13 in-AAR；免費版僅 arm64-v8a + x86_64 |
+| yt-dlp-android | Maven Central `dev.ffmpegkit-maintained:yt-dlp-android:2.0.2` | 無 resolve API（只回 exit code）；免費版僅 arm64-v8a + x86_64 |
 | yt-dlp | 隨 library 綁定版（2026.07.04 世代） | library build 時固定，不 in-app 更新 |
 | FFmpeg | ffmpeg-kit（同維護者），可開關 | 合併/轉 mp3 用；缺席要有 fallback |
 
