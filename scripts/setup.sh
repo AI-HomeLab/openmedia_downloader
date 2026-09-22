@@ -62,8 +62,11 @@ if [ "$need_sdk" = true ]; then
     rm "$TOOLS/cmdline-tools.zip"
     mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
   fi
+  # pipefail 下 yes 收 SIGPIPE 會回 141：這行關掉，管線狀態 = sdkmanager 本人。
+  set +o pipefail
   yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" \
     --sdk_root="$SDK" --install "${SDK_PACKAGES[@]}" >/dev/null
+  set -o pipefail
 else
   echo "==> Android SDK 已有，跳過下載"
 fi
