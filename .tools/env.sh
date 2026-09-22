@@ -5,6 +5,7 @@ export ANDROID_HOME="$ROOT/.tools/android-sdk"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 if [ -z "${JAVA_HOME:-}" ]; then
   # 專案本地 Temurin JDK 21（含 javac；系統的 java-21 是 JRE，不能編譯）
-  export JAVA_HOME="$ROOT/.tools/jdk-21.0.12.1+1"
+  # jdk-21 是 symlink，升級 JDK 時只換連結目標，不用改檔。
+  export JAVA_HOME="$ROOT/.tools/jdk-21"
 fi
 export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/35.0.0:$PATH"

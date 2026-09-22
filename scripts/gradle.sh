@@ -26,7 +26,7 @@ fi
 # Capacitor 8 建議 JDK 21（AGP 8.x 最低 JDK 17）。已設定 JAVA_HOME 就尊重它。
 if [ -z "${JAVA_HOME:-}" ]; then
   for candidate in \
-    "$ROOT/.tools/jdk-21.0.12.1+1" \
+    "$ROOT/.tools/jdk-21" \
     /usr/lib/jvm/java-21-openjdk-amd64 \
     /usr/lib/jvm/java-17-openjdk-amd64; do
     # 要有 javac 才算數（系統的 java-21 常是 JRE，會在編譯期炸）

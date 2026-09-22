@@ -89,7 +89,10 @@ pnpm test:all              # test + android:test
 # 0. 確認工具鏈
 node -v                    # 22+
 pnpm -v                    # 11.x
-java -version              # 21（若 JAVA_HOME 指到舊版，先清掉）
+
+# 新機器第一件事：一鍵裝本地工具鏈（JDK 21 + SDK，冪等，已有會跳過）
+pnpm setup
+# 只需 curl/unzip/tar + Linux x86_64；全裝在 .tools/（不進版控）
 
 # 1. 安裝 + Web 建置（不需要 Android SDK 也能跑）
 corepack pnpm install

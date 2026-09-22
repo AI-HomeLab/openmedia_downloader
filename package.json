@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "setup": "bash scripts/setup.sh",
     "dev": "pnpm --filter web dev",
     "build": "pnpm -r --if-present build",
     "test": "pnpm -r --if-present test",
