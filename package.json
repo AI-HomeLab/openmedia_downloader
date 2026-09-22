@@ -1,0 +1,27 @@
+{
+  "name": "openmedia-downloader",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Next.js + Capacitor Android APK：影音下載 App",
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm -r --if-present build",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "cap:sync": "cap sync android",
+    "android:test": "bash scripts/gradle.sh testDebugUnitTest",
+    "android:build": "bash scripts/gradle.sh assembleDebug",
+    "android:release": "bash scripts/gradle.sh assembleRelease",
+    "android:connected": "bash scripts/gradle.sh connectedAndroidTest",
+    "build:apk": "pnpm build && pnpm cap:sync && pnpm android:build",
+    "test:all": "pnpm test && pnpm android:test"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.1"
+  }
+}

@@ -1,0 +1,16 @@
+node_modules/
+.tools/android-sdk/
+.tools/.gradle/
+.tools/jdk-*/
+out/
+# Android 產生檔
+.gradle/
+build/
+local.properties
+captures/
+.cxx/
+*.apk
+*.aab
+*.hprof
+*.jks
+*.keystore

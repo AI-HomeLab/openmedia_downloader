@@ -1,0 +1,8 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "./.opencode/prompts/rules-and-conventions.md",
+    "./.opencode/prompts/dev-workflow.md",
+    "./.opencode/prompts/gotchas.md"
+  ]
+}
