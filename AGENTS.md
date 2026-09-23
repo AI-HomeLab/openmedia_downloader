@@ -25,6 +25,8 @@ Android APK 專案（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin �
 - 模擬器走 `scripts/emulator.sh`（up 29|33|35、down、status），不用裝 Android Studio；
   要 KVM（`sudo gpasswd -a $USER kvm` 後重登）；`connectedAndroidTest` 是腳本測試主力，
   adb 點按只做手動補充。AVD 家目錄在 `.tools/.android`，不進版控。
+- E2E 用 Maestro（`pnpm e2e`，認文字不認座標；WebView 內容透得出來已驗證）。
+  CLI 裝 `~/.maestro`（不進版控）；flow 在 `e2e/*.yaml`；跑之前先 up 模擬器＋裝 APK。
 - 版本 pin（AGP 8.13.0 / Gradle 8.14.3 / compile+target 36 / minSdk 29 / Capacitor 8，
   皆由 `cap add` 帶入，以 repo 內為準）
   見 rules §3.1，升級要開獨立 ticket。

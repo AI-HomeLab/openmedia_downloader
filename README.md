@@ -77,6 +77,7 @@ pnpm android:connected     # connectedAndroidTest（要接實機/emulator）
 
 pnpm build:apk             # 一鍵鏈：build → cap:sync → android:build
 pnpm test:all              # test + android:test
+pnpm e2e                   # Maestro UI 全環（`e2e/*.yaml`；要先開模擬器＋裝好 APK）
 ```
 
 > 為什麼 `build` 不直接產 APK？`pnpm build` 是純 Web 產物，沒 SDK 也能跑，
@@ -198,6 +199,23 @@ pnpm android:connected       # 有真機/emulator 且動到下載鏈時加跑
 | 存檔找不到 / 權限拒絕 | 是否寫死路徑、有無用 MediaStore/app-specific、測過的 API level（29/33/35 行為不同） |
 | Gradle 失敗 | `java -version` 是否 21、是否經 `scripts/gradle.sh`、有無跑過 `cap:sync` |
 | `pnpm android:*` 直接報錯 | `ANDROID_HOME` 是否存在（先跑 `pnpm setup` 補 SDK） |
+
+## E2E（Maestro，認文字不認座標）
+
+```bash
+# 前置：Maestro CLI（curl -fsSL https://get.maestro.mobile.dev | bash，需 Java 17+；
+# 裝在 ~/.maestro，不進版控）＋開模擬器＋裝好 APK
+bash scripts/emulator.sh up 35
+pnpm android:build
+source .tools/env.sh && adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+
+pnpm e2e                    # 跑 e2e/*.yaml 全流
+```
+
+- Flow 是 YAML（`tapOn: 下載`、`assertVisible`、`inputText`、`extendedWaitUntil`），
+  認 accessibility 文字——Capacitor WebView 內容在 Android 上透得出來，已驗證。
+- `inputText` 只吃 ASCII（Maestro 已知限制）；URL 都是 ASCII 沒差。
+- API 35 相容性官方寫 Q2 2026 到位；本 repo 另有 29/33 AVD 可避（`emulator.sh up 29`）。
 
 ## 合規提醒
 
