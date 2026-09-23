@@ -26,6 +26,44 @@ export interface ResolveResult {
   options: QualityOption[];
 }
 
+export interface PlaylistItem {
+  videoId: string;
+  title: string;
+  url: string;
+  durationSec: number;
+}
+
+export interface PlaylistResult {
+  playlistId: string;
+  title: string;
+  itemCount: number;
+  totalDurationSec: number;
+  items: PlaylistItem[];
+}
+
+export interface BatchProgressEvent extends ProgressEvent {
+  index: number;
+  total: number;
+  itemTitle: string;
+}
+
+export interface BatchFailure {
+  index: number;
+  videoId: string;
+  title: string;
+  code: string;
+  message: string;
+}
+
+export interface BatchResult {
+  succeeded: number;
+  total: number;
+  failed: BatchFailure[];
+}
+
+/** 整批畫質梯（UI 選單＋逐項覆寫共用；下載時映射為 maxHeight 政策）。 */
+export const BATCH_HEIGHTS = [144, 240, 360, 480, 720, 1080] as const;
+
 export interface YtDlpPlugin {
   download(options: {
     url: string;
@@ -36,10 +74,22 @@ export interface YtDlpPlugin {
   cancel(): Promise<void>;
   getStatus(): Promise<{ state: string }>;
   resolve(options: { url: string; kind: DownloadKind }): Promise<ResolveResult>;
+  resolvePlaylist(options: { url: string }): Promise<PlaylistResult>;
+  downloadBatch(options: {
+    url: string;
+    kind: DownloadKind;
+    maxHeight: number;
+    /** JSON 字串（bridge 只收字串；呼叫方先 JSON.stringify）。 */
+    overrides: string;
+  }): Promise<BatchResult>;
   openFile(options: { uri: string }): Promise<void>;
   addListener(
     eventName: 'progress',
     cb: (e: ProgressEvent) => void,
+  ): Promise<{ remove: () => void }> & { remove: () => void };
+  addListener(
+    eventName: 'batchProgress',
+    cb: (e: BatchProgressEvent) => void,
   ): Promise<{ remove: () => void }> & { remove: () => void };
 }
 
@@ -51,8 +101,8 @@ function mockEmit(e: ProgressEvent) {
   mockListeners.forEach((cb) => cb(e));
 }
 
-const MockYtdlp: YtDlpPlugin = {
-  async download({ url }) {
+const MockYtdlp = {
+  async download({ url }: { url: string }) {
     if (!/^https?:\/\//.test(url)) throw new Error('INVALID_URL');
     let percent = 0;
     await new Promise<void>((resolve) => {
@@ -81,8 +131,23 @@ const MockYtdlp: YtDlpPlugin = {
       ],
     };
   },
+  async resolvePlaylist() {
+    return {
+      playlistId: 'PLmock',
+      title: 'Mock 清單',
+      itemCount: 2,
+      totalDurationSec: 120,
+      items: [
+        { videoId: 'mock1', title: 'Mock 第一項', url: 'https://example.com/1', durationSec: 60 },
+        { videoId: 'mock2', title: 'Mock 第二項', url: 'https://example.com/2', durationSec: 60 },
+      ],
+    };
+  },
+  async downloadBatch() {
+    return { succeeded: 0, total: 0, failed: [] };
+  },
   async openFile() {},
-  addListener(_event, cb) {
+  addListener(_event: string, cb: (e: ProgressEvent) => void) {
     mockListeners.add(cb);
     const handle = {
       remove: () => {
@@ -95,4 +160,6 @@ const MockYtdlp: YtDlpPlugin = {
 
 export const YtDlp: YtDlpPlugin = Capacitor.isNativePlatform()
   ? NativeYtDlp
-  : MockYtdlp;
+  // mock 不掛顯式型別：Turbopack 解析不了 object-literal overload，靠 cast 收斂；
+  // 真介面漂移由 pnpm build 的型別檢查在 NativeYtDlp 側擋下。
+  : (MockYtdlp as unknown as YtDlpPlugin);

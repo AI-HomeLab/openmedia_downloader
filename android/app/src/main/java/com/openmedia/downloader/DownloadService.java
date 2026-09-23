@@ -14,6 +14,10 @@ import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -27,11 +31,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class DownloadService extends Service {
     public static final String ACTION_DOWNLOAD =
             "com.openmedia.downloader.action.DOWNLOAD";
+    public static final String ACTION_BATCH =
+            "com.openmedia.downloader.action.BATCH";
     public static final String ACTION_CANCEL =
             "com.openmedia.downloader.action.CANCEL";
     public static final String EXTRA_URL = "url";
     public static final String EXTRA_FORMAT = "format";
     public static final String EXTRA_KIND = "kind";
+    public static final String EXTRA_MAX_HEIGHT = "maxHeight";
+    public static final String EXTRA_OVERRIDES = "overrides";
 
     private static final String CHANNEL_ID = "download";
     private static final int NOTIFICATION_ID = 1;
@@ -43,6 +51,16 @@ public class DownloadService extends Service {
         void onDone(Uri fileUri, String fileName, boolean merged);
 
         void onError(DownloadError code, String message);
+
+        /** 整批進度（ticket 06）：index 從 0 起；單下流程不呼叫。 */
+        default void onBatchProgress(int index, int total, String itemTitle,
+                                     float percent, long etaSeconds, long speedBps) {
+        }
+
+        /** 整批結束：成功數＋單項失敗清單（全成功時 failed 為空）。 */
+        default void onBatchDone(int succeeded, int total,
+                                 java.util.List<BatchFailure> failed) {
+        }
     }
 
     private static volatile Listener listener;
@@ -51,6 +69,8 @@ public class DownloadService extends Service {
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private Future<?> current;
+    /** 整批迴圈是否在跑：是的話取消走檢查點，不 interrupt（見 onStartCommand）。 */
+    private volatile boolean batchActive = false;
 
     public static void setListener(Listener l) {
         listener = l;
@@ -84,6 +104,27 @@ public class DownloadService extends Service {
         return true;
     }
 
+    /** 整批：已在跑就拒收（回 false），呼叫方報 BUSY。 */
+    public static boolean startBatch(Context context, String playlistUrl, String kind,
+                                     int maxHeight, String overridesJson) {
+        if (!running.compareAndSet(false, true)) {
+            return false;
+        }
+        cancelFlag.set(false);
+        Intent intent = new Intent(context, DownloadService.class)
+                .setAction(ACTION_BATCH)
+                .putExtra(EXTRA_URL, playlistUrl)
+                .putExtra(EXTRA_KIND, kind)
+                .putExtra(EXTRA_MAX_HEIGHT, maxHeight)
+                .putExtra(EXTRA_OVERRIDES, overridesJson);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent);
+        } else {
+            context.startService(intent);
+        }
+        return true;
+    }
+
     /** 冪等：沒在跑也安全。 */
     public static void cancel() {
         cancelFlag.set(true);
@@ -107,6 +148,12 @@ public class DownloadService extends Service {
             return START_NOT_STICKY;
         }
         if (ACTION_CANCEL.equals(intent.getAction())) {
+            if (batchActive) {
+                // 整批取消走迴圈檢查點（項間停＋當項半成品刪除＋已完成 N/M 交代）；
+                // 這裡不再 interrupt，避免中斷 Python/ffmpeg 搞壞狀態。
+                // cancelFlag 已由 cancel() 設好。
+                return START_NOT_STICKY;
+            }
             finishCancelled();
             return START_NOT_STICKY;
         }
@@ -116,6 +163,14 @@ public class DownloadService extends Service {
             String kind = intent.getStringExtra(EXTRA_KIND);
             startForeground(NOTIFICATION_ID, buildNotification(0, "準備下載…"));
             current = executor.submit(() -> runDownload(url, format, kind));
+        }
+        if (ACTION_BATCH.equals(intent.getAction())) {
+            String url = intent.getStringExtra(EXTRA_URL);
+            String kind = intent.getStringExtra(EXTRA_KIND);
+            int maxHeight = intent.getIntExtra(EXTRA_MAX_HEIGHT, 1080);
+            String overrides = intent.getStringExtra(EXTRA_OVERRIDES);
+            startForeground(NOTIFICATION_ID, buildNotification(0, "準備整批下載…"));
+            current = executor.submit(() -> runBatch(url, kind, maxHeight, overrides));
         }
         return START_NOT_STICKY;
     }
@@ -199,6 +254,167 @@ public class DownloadService extends Service {
                 l.onError(e.getCode(), e.getMessage());
             }
         }
+    }
+
+    /**
+     * 整批：逐項 resolve→下載→存檔，單項失敗記下繼續跑（ticket 06）。
+     * 取消停在當項：項間檢查直接停，項內中斷走 CANCELLED，都不留半成品。
+     */
+    private void runBatch(String playlistUrl, String kind, int maxHeight, String overridesJson) {
+        batchActive = true;
+        Map<String, Integer> overrides = parseOverrides(overridesJson);
+        boolean audioMode = "audio".equals(kind);
+        List<BatchFailure> failed = new ArrayList<>();
+        int succeeded = 0;
+        int total = 0;
+        try {
+            PlaylistResult list;
+            try {
+                list = ResolveEngine.resolvePlaylist(this, playlistUrl);
+            } catch (ResolveException e) {
+                throw new DownloadException(e.getCode(), e.getMessage(), e);
+            }
+            total = list.items.size();
+            for (int i = 0; i < list.items.size(); i++) {
+                if (cancelFlag.get()) {
+                    finishBatchCancelled(succeeded, total);
+                    return;
+                }
+                PlaylistItem item = list.items.get(i);
+                int h = overrides.getOrDefault(item.videoId, maxHeight);
+                emitBatch(i, total, item.title, 0, 0, 0);
+                try {
+                    downloadBatchItem(item, audioMode, h, i, total);
+                    succeeded++;
+                } catch (DownloadCancelled e) {
+                    finishBatchCancelled(succeeded, total);
+                    return;
+                } catch (DownloadException e) {
+                    failed.add(new BatchFailure(i, item.videoId, item.title,
+                            e.getCode(), e.getMessage()));
+                }
+                emitBatch(i, total, item.title, 100, 0, 0);
+            }
+            finishBatchDone(succeeded, total, failed);
+        } catch (DownloadCancelled e) {
+            finishBatchCancelled(succeeded, total);
+        } catch (DownloadException e) {
+            // 整批掃描失敗（不是單項）：整批報錯，不吞。
+            Listener l = listener;
+            deleteQuietly(null);
+            batchActive = false;
+            running.set(false);
+            stopForeground(true);
+            stopSelf();
+            if (l != null) {
+                l.onError(e.getCode(), e.getMessage());
+            }
+        }
+    }
+
+    /** 單項：完整 resolve→政策選片→下載（＋音檔轉 mp3）→存檔→清暫存。 */
+    private void downloadBatchItem(PlaylistItem item, boolean audioMode, int maxHeight, int index,
+                                   int total)
+            throws DownloadException {
+        File staging = new File(getCacheDir(), "batch-" + System.currentTimeMillis() + "-" + index);
+        try {
+            File landed;
+            if (audioMode) {
+                landed = Downloader.download(this, item.url, staging,
+                        "bestaudio/best", "audio",
+                        (percent, eta, speed, line) -> {
+                            if (cancelFlag.get()) {
+                                throw new DownloadCancelled();
+                            }
+                            emitBatch(index, total, item.title, percent, eta, speed);
+                        }, cancelFlag);
+                try {
+                    landed = transcoder.transcode(landed);
+                } catch (DownloadException e) {
+                    if (e.getPartialFile() != null) {
+                        landed = e.getPartialFile();
+                    }
+                } catch (Throwable t) {
+                    android.util.Log.e("DownloadService", "整批轉檔失敗，留原檔", t);
+                }
+            } else {
+                ResolveResult full;
+                try {
+                    full = ResolveEngine.resolve(this, item.url, true);
+                } catch (ResolveException e) {
+                    throw new DownloadException(e.getCode(), e.getMessage(), e);
+                }
+                VideoFormat picked =
+                        Downloader.pickByPolicy(full.videoOptions(), maxHeight);
+                if (picked == null) {
+                    throw new DownloadException(DownloadError.EXTRACT, "沒有可用畫質");
+                }
+                landed = Downloader.download(this, item.url, staging, picked.formatId, "video",
+                        (percent, eta, speed, line) -> {
+                            if (cancelFlag.get()) {
+                                throw new DownloadCancelled();
+                            }
+                            emitBatch(index, total, item.title, percent, eta, speed);
+                        }, cancelFlag);
+            }
+            MediaStoreSaver.save(this, landed);
+        } finally {
+            deleteQuietly(staging);
+        }
+    }
+
+    private void emitBatch(int index, int total, String title,
+                           float percent, long eta, long speed) {
+        updateNotification((int) percent, eta, speed);
+        Listener l = listener;
+        if (l != null) {
+            l.onBatchProgress(index, total, title, percent, eta, speed);
+        }
+    }
+
+    private void finishBatchDone(int succeeded, int total, List<BatchFailure> failed) {
+        batchActive = false;
+        running.set(false);
+        stopForeground(true);
+        stopSelf();
+        Listener l = listener;
+        if (l != null) {
+            l.onBatchDone(succeeded, total, failed);
+        }
+    }
+
+    private void finishBatchCancelled(int succeeded, int total) {
+        batchActive = false;
+        running.set(false);
+        stopForeground(true);
+        stopSelf();
+        Listener l = listener;
+        if (l != null) {
+            l.onError(DownloadError.CANCELLED, "已完成 " + succeeded + "/" + total + " 項");
+        }
+    }
+
+    /** 逐項覆寫表 {"videoId": maxHeight}；壞掉就當沒有（不讓整批死）。 */
+    static Map<String, Integer> parseOverrides(String json) {
+        Map<String, Integer> out = new HashMap<>();
+        if (json == null || json.isEmpty()) {
+            return out;
+        }
+        try {
+            org.json.JSONObject o = new org.json.JSONObject(json);
+            java.util.Iterator<String> keys = o.keys();
+            while (keys.hasNext()) {
+                String k = keys.next();
+                int h = o.optInt(k, -1);
+                if (h > 0) {
+                    out.put(k, h);
+                }
+            }
+        } catch (org.json.JSONException e) {
+            // 壞掉就當沒有（不讓整批死；JVM 單測不能碰 android.util.Log，不記 log）。
+            return out;
+        }
+        return out;
     }
 
     private void finishCancelled() {

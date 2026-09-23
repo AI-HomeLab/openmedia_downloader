@@ -69,4 +69,45 @@ public final class ResolveEngine {
                     ErrorMapper.fromMessage(e.getMessage()), "解析失敗", e);
         }
     }
+
+    /**
+     * 播放清單掃描（ticket 06）：flat extract，只拿 id/標題/連結/時長，不拿格式。
+     * 單片 URL 誤傳進來（_type=video）拋 EXTRACT，呼叫方退回單片流程。
+     */
+    public static PlaylistResult resolvePlaylist(android.content.Context context, String url)
+            throws ResolveException {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            throw new ResolveException(DownloadError.UNKNOWN, "禁止在 main thread resolve");
+        }
+        try {
+            YtDlpEngine.initOnce(context);
+        } catch (DownloadException e) {
+            throw new ResolveException(e.getCode(), e.getMessage(), e);
+        }
+        try {
+            Python py = Python.getInstance();
+            PyObject ytDlp = py.getModule("yt_dlp");
+            PyObject opts = py.getBuiltins().callAttr("dict");
+            opts.callAttr("__setitem__", "quiet", true);
+            opts.callAttr("__setitem__", "noplaylist", false);
+            opts.callAttr("__setitem__", "extract_flat", true);
+            opts.callAttr("__setitem__", "socket_timeout", 15);
+            PyObject ydl = ytDlp.callAttr("YoutubeDL", opts);
+            PyObject info = ydl.callAttr("extract_info", url, false);
+            if (info == null) {
+                throw new ResolveException(DownloadError.EXTRACT, "解析無回傳");
+            }
+            PyObject json = py.getModule("json");
+            String dumped = json.callAttr("dumps", info).toJava(String.class);
+            if (!PlaylistResult.isPlaylistJson(dumped)) {
+                throw new ResolveException(DownloadError.EXTRACT, "這不是播放清單");
+            }
+            return PlaylistResult.parse(dumped);
+        } catch (ResolveException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResolveException(
+                    ErrorMapper.fromMessage(e.getMessage()), "解析失敗", e);
+        }
+    }
 }

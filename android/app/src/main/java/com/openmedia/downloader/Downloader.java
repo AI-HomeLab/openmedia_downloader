@@ -116,6 +116,45 @@ public final class Downloader {
                 }, cancelFlag);
     }
 
+    /**
+     * 整批政策選片（ticket 06）：上限高度內取最高；有聲優先（免合併），
+     * 無有聲取最高無聲走合併；上限內全無則退回最小（不讓整批卡死）。
+     * 純函式，可單測。音檔整批不走這裡（bestaudio 即最高音質）。
+     */
+    static VideoFormat pickByPolicy(List<VideoFormat> options, int maxHeight) {
+        if (options == null || options.isEmpty()) {
+            return null;
+        }
+        VideoFormat bestSpoken = null;
+        VideoFormat bestMute = null;
+        VideoFormat smallest = null;
+        for (VideoFormat f : options) {
+            if (!f.hasVideo() || f.height <= 0) {
+                continue;
+            }
+            if (smallest == null || f.height < smallest.height) {
+                smallest = f;
+            }
+            if (f.height > maxHeight) {
+                continue;
+            }
+            if (f.hasAudio()) {
+                if (bestSpoken == null || f.height > bestSpoken.height) {
+                    bestSpoken = f;
+                }
+            } else if (bestMute == null || f.height > bestMute.height) {
+                bestMute = f;
+            }
+        }
+        if (bestSpoken != null) {
+            return bestSpoken;
+        }
+        if (bestMute != null) {
+            return bestMute;
+        }
+        return smallest;
+    }
+
     static VideoFormat pick(ResolveResult resolved, String format, boolean audioMode) {
         if (audioMode) {
             VideoFormat audio = resolved.bestAudio();

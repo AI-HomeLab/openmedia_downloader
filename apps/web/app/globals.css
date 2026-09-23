@@ -33,6 +33,10 @@ input[type='text'] {
   min-height: 44px;
   font-size: 16px;
 }
+select {
+  min-height: 44px;
+  font-size: 16px;
+}
 .progress {
   height: 12px;
   background: #333;

@@ -24,3 +24,9 @@
   與 resolve 回傳一致（選項外不提供不存在的畫質）。
 - [ ] 存檔顯示名稱去 `dl-` 前綴（現狀：直存/轉檔沿用 staging 檔名 `dl-<標題>.ext`，
   只有合併成功是乾淨標題；e2e 斷言已按現狀 pin 住，改名時同步改 `scripts/e2e.sh`）。
+- [ ] FGS 通知早退：`Stop FGS timeout` 在啟動後約 3 秒殺 service record
+  （單下＋整批皆然，與 extras 無關的雙 intent 為系統正常行為）；
+  worker 執行緒存活所以下載照走（20+ 次實證），但通知列進度會提前消失、
+  行程優先權下降。manifest 的 dataSync 宣告＋權限都已齊；
+  若要根治，試 `startForeground(id, notif, FOREGROUND_SERVICE_TYPE_DATA_SYNC)`
+  三參數版並重測 resolve→download→cancel→retry 全流程。

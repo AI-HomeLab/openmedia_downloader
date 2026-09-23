@@ -30,6 +30,9 @@ public class YtDlpPlugin extends Plugin {
     /** 上次 resolve 的完整結果；download(formatIndex) 吃它的 index，URL 對不上就拒收。 */
     private volatile ResolveResult lastResolve;
     private volatile String lastResolveUrl;
+    /** 上次掃描的清單；downloadBatch 吃它做 URL 一致性檢查（防錯單）。 */
+    private volatile PlaylistResult lastPlaylist;
+    private volatile String lastPlaylistUrl;
 
     @Override
     public void load() {
@@ -68,6 +71,43 @@ public class YtDlpPlugin extends Plugin {
                 }
                 final String msg = message == null ? code.name() : message;
                 finishWith((call) -> call.reject(msg, code.name()));
+            }
+
+            @Override
+            public void onBatchProgress(int index, int total, String itemTitle,
+                                        float percent, long etaSeconds, long speedBps) {
+                JSObject data = new JSObject();
+                data.put("index", index);
+                data.put("total", total);
+                data.put("itemTitle", itemTitle);
+                data.put("percent", percent);
+                data.put("etaSeconds", etaSeconds);
+                data.put("speedBps", speedBps);
+                data.put("line", "");
+                main.post(() -> notifyListeners("batchProgress", data));
+            }
+
+            @Override
+            public void onBatchDone(int succeeded, int total,
+                                    java.util.List<BatchFailure> failed) {
+                currentState = "done";
+                finishWith((call) -> {
+                    JSObject data = new JSObject();
+                    data.put("succeeded", succeeded);
+                    data.put("total", total);
+                    JSArray arr = new JSArray();
+                    for (BatchFailure f : failed) {
+                        JSObject o = new JSObject();
+                        o.put("index", f.index);
+                        o.put("videoId", f.videoId);
+                        o.put("title", f.title);
+                        o.put("code", f.code.name());
+                        o.put("message", f.message);
+                        arr.put(o);
+                    }
+                    data.put("failed", arr);
+                    call.resolve(data);
+                });
             }
         });
     }
@@ -161,6 +201,84 @@ public class YtDlpPlugin extends Plugin {
                         "解析失敗", DownloadError.UNKNOWN.name()));
             }
         });
+    }
+
+    /** 清單掃描（ticket 06）：flat entries，不拿格式；結果快取給 downloadBatch。 */
+    @PluginMethod
+    public void resolvePlaylist(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || !(url.startsWith("http://") || url.startsWith("https://"))) {
+            call.reject("INVALID_URL", DownloadError.UNKNOWN.name());
+            return;
+        }
+        currentState = "resolving";
+        final String callbackId = call.getCallbackId();
+        getBridge().saveCall(call);
+        executor.submit(() -> {
+            try {
+                PlaylistResult result = ResolveEngine.resolvePlaylist(getContext(), url);
+                lastPlaylist = result;
+                lastPlaylistUrl = url;
+                JSArray arr = new JSArray();
+                long totalSec = 0;
+                for (PlaylistItem item : result.items) {
+                    JSObject o = new JSObject();
+                    o.put("videoId", item.videoId);
+                    o.put("title", item.title);
+                    o.put("url", item.url);
+                    o.put("durationSec", item.durationSec);
+                    arr.put(o);
+                    if (item.durationSec > 0) {
+                        totalSec += item.durationSec;
+                    }
+                }
+                JSObject data = new JSObject();
+                data.put("playlistId", result.playlistId);
+                data.put("title", result.title);
+                data.put("itemCount", result.items.size());
+                data.put("totalDurationSec", totalSec);
+                data.put("items", arr);
+                finishSaved(callbackId, (saved) -> saved.resolve(data));
+            } catch (ResolveException e) {
+                currentState = "error";
+                finishSaved(callbackId,
+                        (saved) -> saved.reject(e.getMessage(), e.getCode().name()));
+            } catch (Throwable t) {
+                android.util.Log.e("YtDlpPlugin", "resolvePlaylist 意外失敗", t);
+                currentState = "error";
+                finishSaved(callbackId, (saved) -> saved.reject(
+                        "解析失敗", DownloadError.UNKNOWN.name()));
+            }
+        });
+    }
+
+    /**
+     * 整批下載（ticket 06）：URL 必須跟上次掃描一致；kind=video|audio；
+     * maxHeight=整批預設上限；overrides={videoId:maxHeight} 逐項覆寫。
+     * 進度走 batchProgress 事件，結束 resolve {succeeded,total,failed[]}。
+     */
+    @PluginMethod
+    public void downloadBatch(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || !(url.startsWith("http://") || url.startsWith("https://"))) {
+            call.reject("INVALID_URL", DownloadError.UNKNOWN.name());
+            return;
+        }
+        PlaylistResult cached = lastPlaylist;
+        if (cached == null || !url.equals(lastPlaylistUrl)) {
+            call.reject("請重新掃描後再整批下載", DownloadError.UNKNOWN.name());
+            return;
+        }
+        String kind = call.getString("kind", "video");
+        int maxHeight = call.getInt("maxHeight", 1080);
+        String overrides = call.getString("overrides", "{}");
+        if (!DownloadService.startBatch(getContext(), url, kind, maxHeight, overrides)) {
+            call.reject("BUSY", DownloadError.UNKNOWN.name());
+            return;
+        }
+        currentState = "downloading";
+        currentCallbackId = call.getCallbackId();
+        getBridge().saveCall(call);
     }
 
     /** 從快取的 resolve 結果拿 formatId；URL 對不上或越界就拒收（防錯片）。 */

@@ -1,0 +1,27 @@
+# 播放清單 UI 全環（ticket 06）：掃描 → 設定畫面 → 整批開始 → 首項進度 → 取消有交代
+# 完整 11 項下載由 connected BatchDownloadTest 覆蓋（太長不放 e2e）。
+appId: com.openmedia.downloader
+---
+- launchApp:
+    clearState: true
+- assertVisible: OpenMedia
+- tapOn: 貼上影片連結
+- inputText: "https://www.youtube.com/playlist?list=PL59FEE129ADFF2B12"
+- hideKeyboard
+- tapOn: 解析
+- extendedWaitUntil:
+    visible: "Test Playlist.*"
+    timeout: 120000
+# 清單標題列會被 a11y 拆成多個節點（全形括號處斷開），不斷言「共 N 項」全文；
+# 用條目名斷言清單真的列出來（數量由 connected test 斷言）。
+- assertVisible: Cake
+- tapOn: 下載整批
+# 進度文字含當項序號（第 N/11 項），跑得比 polling 快就不斷言特定 N；
+# 「取消」全程可見，拿它證明整批在跑，再取消看交代。
+- extendedWaitUntil:
+    visible: 取消
+    timeout: 120000
+- tapOn: 取消
+- extendedWaitUntil:
+    visible: ".*已完成.*"
+    timeout: 60000
