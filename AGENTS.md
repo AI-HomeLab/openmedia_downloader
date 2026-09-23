@@ -22,6 +22,9 @@ Android APK 專案（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin �
 - JDK 用 `.tools/jdk-21`（symlink，Temurin 完整 JDK）。**系統 `/usr/lib/jvm/java-21-*` 是 JRE，
   沒有 javac**，`gradle.sh` 會跳過它；`JAVA_HOME` 被指到舊版時先清掉再查。
 - `GRADLE_USER_HOME` 預設收進 `.tools/.gradle`；`.tools/` 全不進版控（見 `.gitignore`）。
+- 模擬器走 `scripts/emulator.sh`（up 29|33|35、down、status），不用裝 Android Studio；
+  要 KVM（`sudo gpasswd -a $USER kvm` 後重登）；`connectedAndroidTest` 是腳本測試主力，
+  adb 點按只做手動補充。AVD 家目錄在 `.tools/.android`，不進版控。
 - 版本 pin（AGP 8.13.0 / Gradle 8.14.3 / compile+target 36 / minSdk 29 / Capacitor 8，
   皆由 `cap add` 帶入，以 repo 內為準）
   見 rules §3.1，升級要開獨立 ticket。

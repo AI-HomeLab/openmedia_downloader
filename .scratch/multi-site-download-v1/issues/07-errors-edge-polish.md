@@ -10,5 +10,6 @@
 
 - [ ] 六碼錯誤每碼都有對應 UI 文案與重試/放棄行為（EXTRACT 含站方改版提示）
 - [ ] 驗收矩陣（三站 × 單影片/mp3/播放清單 × API 29/33/35）全綠並有記錄
+  （先行證據：DownloadChain 真鏈在 API 29 + 35 emulator 已綠；33 待跑）
 - [ ] `pnpm test:all` 綠 + `pnpm build:apk` 產物有效
 - [ ] spec 與 issues 狀態收尾，README 對應段落已同步（含支援範圍聲明）
