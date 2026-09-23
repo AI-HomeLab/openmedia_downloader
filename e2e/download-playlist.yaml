@@ -2,13 +2,12 @@
 # 完整 11 項下載由 connected BatchDownloadTest 覆蓋（太長不放 e2e）。
 appId: com.openmedia.downloader
 ---
-- launchApp:
-    clearState: true
-- assertVisible: OpenMedia
-- tapOn: 貼上影片連結
-- inputText: "https://www.youtube.com/playlist?list=PL59FEE129ADFF2B12"
-- hideKeyboard
-- tapOn: 解析
+- runFlow:
+    file: ./_common/launch.yaml
+- runFlow:
+    file: ./_common/resolve-video.yaml
+    env:
+      URL: "https://www.youtube.com/playlist?list=PL59FEE129ADFF2B12"
 - extendedWaitUntil:
     visible: "Test Playlist.*"
     timeout: 120000

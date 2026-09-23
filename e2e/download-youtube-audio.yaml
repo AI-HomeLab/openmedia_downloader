@@ -3,14 +3,12 @@
 # 音檔模式無畫質清單，不需選項不斷言大小（檔名由轉檔決定，flow 只認完成＋e2e.sh 認檔）。
 appId: com.openmedia.downloader
 ---
-- launchApp:
-    clearState: true
-- assertVisible: OpenMedia
-- tapOn: 音檔
-- tapOn: 貼上影片連結
-- inputText: "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
-- hideKeyboard
-- tapOn: 解析
+- runFlow:
+    file: ./_common/launch.yaml
+- runFlow:
+    file: ./_common/resolve-audio.yaml
+    env:
+      URL: "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
 - extendedWaitUntil:
     visible: "Big Buck Bunny.*"
     timeout: 120000

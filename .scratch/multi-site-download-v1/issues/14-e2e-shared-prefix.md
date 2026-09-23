@@ -6,8 +6,9 @@ Maestro quirks（精確全文、regex 全比對）註解跟著搬到共用檔。
 
 **Blocked by:** 無.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] 抽 `_common/launch.yaml`（開 App＋斷言首屏）與 `_common/paste-resolve.yaml`
-  （貼連結＋解析，URL 參數化）；5 流改寫並全綠
-- [ ] `pnpm e2e` exit=0（含檔案斷言；注意共用化後仍恰好一份）
+- [x] 抽 `_common/launch.yaml`＋`resolve-video.yaml`＋`resolve-audio.yaml`
+  （URL 走 runFlow env；子流需自帶 appId 否則報 Config Section Required；
+  執行期 log 印 `${URL}` 原樣但實際有代入——以下載完成為證）
+- [x] `pnpm e2e` exit=0：5 流全綠＋檔案斷言（`maestro test e2e/` 不會跑 `_common/` 底下）

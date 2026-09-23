@@ -1,0 +1,8 @@
+# 共用前綴：音檔模式貼連結＋解析。用 runFlow env 傳 URL，不可單獨跑。
+appId: com.openmedia.downloader
+---
+- tapOn: 音檔
+- tapOn: 貼上影片連結
+- inputText: "${URL}"
+- hideKeyboard
+- tapOn: 解析

@@ -1,13 +1,12 @@
 # 影片全環：解析 → 選 360p（含聲音免合併）→ 下載 → 完成
 appId: com.openmedia.downloader
 ---
-- launchApp:
-    clearState: true
-- assertVisible: OpenMedia
-- tapOn: 貼上影片連結
-- inputText: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_2MB.mp4"
-- hideKeyboard
-- tapOn: 解析
+- runFlow:
+    file: ./_common/launch.yaml
+- runFlow:
+    file: ./_common/resolve-video.yaml
+    env:
+      URL: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_2MB.mp4"
 - assertVisible: Big_Buck_Bunny_360_10s_2MB
 - tapOn: 下載
 - extendedWaitUntil:
