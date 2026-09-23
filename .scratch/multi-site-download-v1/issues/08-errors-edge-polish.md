@@ -1,10 +1,10 @@
-# 07 — 錯誤收尾與驗收矩陣
+# 08 — 錯誤收尾與驗收矩陣
 
 **What to build:** 第一版的錯誤與邊界一次收完：無效連結、私人/刪除影片、
 站方改版、斷網、儲存失敗，每種都有人類看得懂的中文案與正確重試行為；
 三站 × 三形態 × API 29/33/35 驗收矩陣全綠，即 spec 的 DoD。
 
-**Blocked by:** 06 — X 與 Bilibili 逐站驗收.
+**Blocked by:** 07 — X 與 Bilibili 逐站驗收.
 
 **Status:** ready-for-agent
 

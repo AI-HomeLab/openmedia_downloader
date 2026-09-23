@@ -20,7 +20,7 @@
 
 驗收記錄：emulator omd-35。connected 8/8 綠（含 `AudioDownloadTest`、
 `ServiceAudioTest`）；單測含轉檔檔名推導；libmp3lame 機上實證可用。
-已知缺口：YouTube bestaudio 在機房 IP 403，YouTube 側 mp3 真轉留給 06 實站驗。
+已知缺口：YouTube bestaudio 在機房 IP 403，YouTube 側 mp3 真轉留給 07 實站驗。
 附帶修：abiFilters 只留 arm64-v8a + x86_64（對齊 yt-dlp-android，舊 32-bit 機不支援）；
 kind toggle 加 pressed 樣式（之前看不出模式）；resolve 加 kind（音檔不要求影像）。
 附帶抓 bug：transcoder 先刪 output 會誤刪同名 input（經 temp 檔）、

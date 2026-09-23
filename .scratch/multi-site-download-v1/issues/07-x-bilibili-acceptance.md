@@ -4,7 +4,7 @@
 把站差異（X 多為單檔、B 站清晰度結構、各自的失敗長相）記入驗收記錄，
 其他站維持 best-effort（能解就用，不逐站驗）。
 
-**Blocked by:** 05 — 播放清單批次下載.
+**Blocked by:** 06 — 播放清單批次下載.
 
 **Status:** ready-for-agent
 

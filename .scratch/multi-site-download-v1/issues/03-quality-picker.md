@@ -24,7 +24,7 @@
 單測 13/13 綠；connected 6/6 綠。
 已知缺口：機房 IP 對 YouTube 媒體 403，本環境走不到「真合併失敗」分支——
 POSTPROCESS 的 mapper/partial/service 三段各有單測或程式審查覆蓋，
-`merged:false` UI 待可抓媒體時實機補驗（記入 07）。
+`merged:false` UI 待可抓媒體時實機補驗（記入 08）。
 附帶修：`videoOptions` 納入無尺寸直連單檔；`hasVideo/hasAudio` 處理 null codec；
 `options===null` 才算未解析（空清單不再吞掉標題）。
 review 補修：`pickFormat` 校驗 URL（防錯片）；音檔模式不送 formatIndex（保 bestaudio）；
