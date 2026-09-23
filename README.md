@@ -77,7 +77,7 @@ pnpm android:connected     # connectedAndroidTest（要接實機/emulator）
 
 pnpm build:apk             # 一鍵鏈：build → cap:sync → android:build
 pnpm test:all              # test + android:test
-pnpm e2e                   # Maestro UI 全環（`e2e/*.yaml`；要先開模擬器＋裝好 APK）
+pnpm e2e                   # Maestro UI 全環＋檔案落地斷言（`e2e/*.yaml`；要先開模擬器＋裝好 APK）
 ```
 
 > 為什麼 `build` 不直接產 APK？`pnpm build` 是純 Web 產物，沒 SDK 也能跑，
@@ -214,6 +214,9 @@ pnpm e2e                    # 跑 e2e/*.yaml 全流
 
 - Flow 是 YAML（`tapOn: 下載`、`assertVisible`、`inputText`、`extendedWaitUntil`），
   認 accessibility 文字——Capacitor WebView 內容在 Android 上透得出來，已驗證。
+- `pnpm e2e` 跑的是 `scripts/e2e.sh`：先清場（刪測試檔家族）、跑全流、
+  再斷言 MediaStore **恰好一份＋>100KB**（多一份＝重複下單，直接 fail）。
+  檔名規則：直存/轉檔帶 `dl-` 前綴、合併成功用乾淨標題（見 MediaStoreSaver）。
 - `inputText` 只吃 ASCII（Maestro 已知限制）；URL 都是 ASCII 沒差。
 - `tapOn`/`assertVisible` 的文字其實走 regex 全比對：**pattern 含中文必 miss，改用精確全文**
   （如 `"360p mp4・17.4 MB（無聲，需合併）"`）；純 ASCII regex（`"完成.*"`）可用。

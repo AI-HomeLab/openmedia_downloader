@@ -35,6 +35,8 @@ Android APK 專案（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin �
 - `capacitor-cordova-android-plugins:checkDebugAndroidTestDuplicateClasses`
   偶發 kotlin-stdlib duplicate 失敗：重跑，仍壞就加
   `-x :capacitor-cordova-android-plugins:connectedDebugAndroidTest`。
+- 迴圈裡調 `adb shell` 必須 `< /dev/null`：adb 會吃掉迴圈的 stdin，
+  沒加的話第一個 adb 之後迴圈直接 EOF（`scripts/e2e.sh` 實例）。
 - 版本 pin（AGP 8.13.0 / Gradle 8.14.3 / compile+target 36 / minSdk 29 / Capacitor 8，
   皆由 `cap add` 帶入，以 repo 內為準）
   見 rules §3.1，升級要開獨立 ticket。

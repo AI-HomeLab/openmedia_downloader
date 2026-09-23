@@ -15,7 +15,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "pnpm -r --if-present lint",
     "cap:sync": "cap sync android",
-    "e2e": "maestro test e2e/",
+    "e2e": "bash scripts/e2e.sh",
     "android:test": "bash scripts/gradle.sh testDebugUnitTest",
     "android:build": "bash scripts/gradle.sh assembleDebug",
     "android:release": "bash scripts/gradle.sh assembleRelease",
