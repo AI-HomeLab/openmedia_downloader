@@ -216,17 +216,9 @@ public class DownloadService extends Service {
             if ("audio".equals(kind)) {
                 // bestaudio 下載檔 → mp3；失敗走 POSTPROCESS＋留原檔（與合併同一語意）。
                 // Throwable 全收（含 native 載入失敗）：轉檔永遠不能把整單拖成懸空。
-                try {
-                    finalFile = transcoder.transcode(landed);
-                } catch (DownloadException e) {
-                    if (e.getPartialFile() != null) {
-                        finalFile = e.getPartialFile();
-                    }
-                    processed = false;
-                } catch (Throwable t) {
-                    android.util.Log.e("DownloadService", "transcode 意外失敗，留原檔", t);
-                    processed = false;
-                }
+                TranscodeResult t = transcodeAudio(transcoder, landed);
+                finalFile = t.file;
+                processed = t.processed;
             }
             Uri uri = MediaStoreSaver.save(this, finalFile);
             deleteQuietly(staging);
@@ -343,15 +335,7 @@ public class DownloadService extends Service {
                             }
                             emitBatch(index, total, item.title, percent, eta, speed);
                         }, cancelFlag);
-                try {
-                    landed = transcoder.transcode(landed);
-                } catch (DownloadException e) {
-                    if (e.getPartialFile() != null) {
-                        landed = e.getPartialFile();
-                    }
-                } catch (Throwable t) {
-                    android.util.Log.e("DownloadService", "整批轉檔失敗，留原檔", t);
-                }
+                landed = transcodeAudio(transcoder, landed).file;
             } else {
                 ResolveResult full;
                 try {
@@ -375,6 +359,34 @@ public class DownloadService extends Service {
             MediaStoreSaver.save(this, landed);
         } finally {
             deleteQuietly(staging);
+        }
+    }
+
+    /** 轉檔結果：成品＋是否成功轉出（失敗留原檔時 processed=false）。 */
+    static class TranscodeResult {
+        final File file;
+        final boolean processed;
+
+        TranscodeResult(File file, boolean processed) {
+            this.file = file;
+            this.processed = processed;
+        }
+    }
+
+    /**
+     * 音檔轉 mp3（含失敗留原檔；ticket 11 單下／整批共用）。
+     * Throwable 全收（含 native 缺席）：JVM 單測正好走 fallback 分支。
+     */
+    static TranscodeResult transcodeAudio(AudioTranscoder transcoder, File landed) {
+        try {
+            return new TranscodeResult(transcoder.transcode(landed), true);
+        } catch (DownloadException e) {
+            if (e.getPartialFile() != null) {
+                landed = e.getPartialFile();
+            }
+            return new TranscodeResult(landed, false);
+        } catch (Throwable t) {
+            return new TranscodeResult(landed, false);
         }
     }
 

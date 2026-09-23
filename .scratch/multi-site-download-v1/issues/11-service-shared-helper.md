@@ -5,8 +5,8 @@
 
 **Blocked by:** 無.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] 抽 `finishItem(staging, landed, audioMode) -> File`（轉檔含失敗留原檔＋存檔＋清暫存），
-  兩路共用；單測覆蓋命名/回傳（沿用 `CleanNameTest` 思路）
-- [ ] `pnpm test:all` 綠＋任一單下 e2e 綠（行為無變）
+- [x] 抽 `transcodeAudio(transcoder, landed) -> TranscodeResult`（轉檔含失敗留原檔），
+  單下／整批共用；單測 `TranscodeAudioTest`（成功直通／native 缺席 fallback／partial 保留）
+- [x] `pnpm test:all` 綠（40/40）＋connected `ServiceAudioTest` 綠（行為無變）
