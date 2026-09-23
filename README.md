@@ -48,12 +48,29 @@ UI 跑在手機 WebView，下載能力經由**自訂 YtDlp Capacitor Plugin** �
 - 儲存到 MediaStore / app-specific 目錄（Scoped Storage），檔名為乾淨標題
 - 詳細行為以 `.scratch/<feature>/spec.md` 為準，notebook 只做歷史對照
 
-### 支援範圍聲明（第一版驗收結論）
+### 支援範圍聲明（第一版驗收結論，有實證才寫）
+
+實證基礎：單測 37＋connected（merge／batch／X-Bili 驗收）常駐＋`pnpm e2e` 5 流，
+API 29/33/35 映像皆跑過。**但全部都在模擬器（x86_64）驗的，沒上過 arm64 真機**，
+這是目前最大盲點。
+
 - 站點：YouTube、X（單檔 progressive 為主）、Bilibili（DASH 分離式＋合併）三站驗收過；
   其他站 best-effort（能解就用）。需登入/會員牆內容回「需登入、目前不支援」，不做登入。
 - 畫質：整批預設 1080p（或該項最高可用≤1080p）＋最佳音質；B 站免登入列到 1080p。
-- 裝置：minSdk 29（Android 10+），64-bit only；驗收過 API 29/33/35 映像。
-  已知限制：通知列進度約 3 秒早退（下載本身不受影響）、背景長批次有被系統回收風險。
+- 裝置：minSdk 29（Android 10+），64-bit only；APK 約 98MB。
+
+### 已知限制（誠實清單）
+
+- **YouTube 靠 overlay 續命**：AAR 內建 yt-dlp 已跟不上，靠自帶 wheel 2026.08.19 蓋掉；
+  YouTube 服務端再改版就要 bump（流程見 ticket 09）。
+- **B 站是軍備競賽**：CDN 要影片頁完整 Referer＋桌面 UA＋`identity` 編碼，缺一就 403；
+  B 站換 WAF 規則就再斷一次（定位方法：host curl 對照組，見 ticket 07）。
+- **通知列進度約 3 秒早退**：系統殺 service record，但 worker 續命所以下載照走；
+  前景使用無感，背景長批次有被回收風險。
+- **e2e 有外部脆弱點**：SoundHelix 主機會限速；YouTube 每次格式略有不同；
+  Google 測試清單刪片會連帶紅——這類紅是「驗收測試先報警」的設計，不是 bug。
+- **功能邊界**：不做登入／DRM／私享片；無分享、無內建播放器、無斷點續傳（失敗重抓）；
+  逐項調整目前是「每項選高度上限」，不是逐項看完整格式清單（50 項全 resolve 太慢，刻意折衷）。
 
 ## 環境需求
 
