@@ -215,6 +215,12 @@ pnpm e2e                    # 跑 e2e/*.yaml 全流
 - Flow 是 YAML（`tapOn: 下載`、`assertVisible`、`inputText`、`extendedWaitUntil`），
   認 accessibility 文字——Capacitor WebView 內容在 Android 上透得出來，已驗證。
 - `inputText` 只吃 ASCII（Maestro 已知限制）；URL 都是 ASCII 沒差。
+- `tapOn`/`assertVisible` 的文字其實走 regex 全比對：**pattern 含中文必 miss，改用精確全文**
+  （如 `"360p mp4・17.4 MB（無聲，需合併）"`）；純 ASCII regex（`"完成.*"`）可用。
+- a11y 樹會剪掉 fold 下的節點：CTA（下載列）用 sticky bottom bar 常駐可視區，
+  不要在 flow 裡 `scrollUntilVisible` 再點（捲動後 tap 會卡住、重複下單）。
+- YouTube 每次 resolve 的格式集合略有不同（SABR）：240p/144p 時有時無；
+  flow 釘「三次都在且大小穩定」的 360p mp4・17.4 MB，換片/改版要重驗。
 - API 35 相容性官方寫 Q2 2026 到位；本 repo 另有 29/33 AVD 可避（`emulator.sh up 29`）。
 
 ## 合規提醒

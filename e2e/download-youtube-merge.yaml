@@ -1,0 +1,23 @@
+# YouTube 分離抓取＋合併全環：解析 → 選 360p mp4 無聲（需合併）→ 下載 → 完成
+# 前提：YtDlpEngine wheel overlay（否則 YouTube 直連 403）
+# 註：Maestro 的 tapOn 其實走 regex 全比對，pattern 含中文會 miss，改用精確全文；
+# 另 SABR 每次回的格式略有不同，240p/144p 時有時無，360p mp4 三次都在，大小也穩。
+appId: com.openmedia.downloader
+---
+- launchApp:
+    clearState: true
+- assertVisible: OpenMedia
+- tapOn: 貼上影片連結
+- inputText: "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
+- hideKeyboard
+- tapOn: 解析
+- extendedWaitUntil:
+    visible: "Big Buck Bunny.*"
+    timeout: 120000
+- tapOn: "360p mp4・17.4 MB（無聲，需合併）"
+# 不自己 scroll：Maestro tapOn 會自動滾到可點位置；顯式 scrollUntilVisible
+# 反而讓後續 tap 卡住（WebView a11y 樹滾動後不穩定）。
+- tapOn: 下載
+- extendedWaitUntil:
+    visible: "完成.*"
+    timeout: 300000

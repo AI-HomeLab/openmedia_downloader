@@ -45,3 +45,10 @@ input[type='text'] {
 }
 .error { color: var(--danger); }
 .row { display: flex; gap: 8px; margin: 12px 0; }
+/* CTA 常駐底部：選項再長也不用翻到底找按鈕；automation 可見性不斷 */
+.cta {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+}

@@ -48,6 +48,15 @@ export default function Home() {
   }, []);
 
   const busy = ui.state === 'resolving' || ui.state === 'downloading';
+
+  // 結果（完成/失敗）落在選項清單下方：出現時捲到底；downloading 不捲，
+  // 避免 tap 確認期間 layout 跳動（automation 會等到 timeout）。
+  // CTA 本體是 sticky bottom bar，常駐可視區。
+  useEffect(() => {
+    if (ui.state === 'done' || ui.state === 'error') {
+      window.scrollTo({ top: document.body.scrollHeight });
+    }
+  }, [ui.state]);
   // null = 還沒解析；空陣列 = 解析過但無可用畫質（照樣顯示標題與狀態）
   const resolved = options !== null;
 
@@ -135,7 +144,7 @@ export default function Home() {
               {!o.hasAudio && '（無聲，需合併）'}
             </label>
           ))}
-          <div className="row">
+          <div className="row cta">
             <button onClick={start}>下載</button>
             <button onClick={resetAll}>重選</button>
           </div>

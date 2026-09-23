@@ -27,6 +27,14 @@ Android APK 專案（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin �
   adb 點按只做手動補充。AVD 家目錄在 `.tools/.android`，不進版控。
 - E2E 用 Maestro（`pnpm e2e`，認文字不認座標；WebView 內容透得出來已驗證）。
   CLI 裝 `~/.maestro`（不進版控）；flow 在 `e2e/*.yaml`；跑之前先 up 模擬器＋裝 APK。
+  坑：tapOn 是 regex 全比對（含中文 pattern 必 miss，用精確全文）；
+  a11y 樹剪 fold 下節點（CTA 用 sticky 保可點，不在 flow 裡 scroll 再點）。
+- `/dev/kvm` 掉權限（`user` 不在有效 groups）且 sudo 要密碼時，
+  用 `sg kvm -c 'bash scripts/emulator.sh up 35'` 開模擬器；看到 member 在
+  `/etc/group` 卻無效是 session 太舊，重登或 sg 即可。
+- `capacitor-cordova-android-plugins:checkDebugAndroidTestDuplicateClasses`
+  偶發 kotlin-stdlib duplicate 失敗：重跑，仍壞就加
+  `-x :capacitor-cordova-android-plugins:connectedDebugAndroidTest`。
 - 版本 pin（AGP 8.13.0 / Gradle 8.14.3 / compile+target 36 / minSdk 29 / Capacitor 8，
   皆由 `cap add` 帶入，以 repo 內為準）
   見 rules §3.1，升級要開獨立 ticket。

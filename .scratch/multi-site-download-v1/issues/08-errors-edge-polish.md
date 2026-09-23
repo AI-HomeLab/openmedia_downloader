@@ -16,10 +16,9 @@
 
 ## 前票缺口（03 帶入，本票補驗）
 
-- [ ] 真合併失敗分支實機驗證：03 在機房 IP 下走不到（YouTube 媒體 403，
-  到不了合併）。mapper（ffmpeg 關鍵字→POSTPROCESS）、partial-file 保留、
-  service 存原檔＋`merged:false` 三段已有單測/程式審查覆蓋；
-  本票需在可抓媒體的環境（實機或非機房 IP）選一個純影像格式下載，
-  確認「完成（未合併）」UI 出現且原檔保留在 Downloads。
+- [x] 真合併路徑實機驗證（09 overlay 後已通，不再需要「可抓媒體的環境」假設）：
+  `YoutubeSplitMergeTest`（134+139 分段抓→ffmpeg 合併→MediaExtractor 有 audio 軌）綠；
+  Maestro `e2e/download-youtube-merge.yaml`（解析→360p mp4 無聲→下載→完成）綠。
+  剩餘：合併「失敗」分支（POSTPROCESS＋留原檔＋「完成（未合併）」UI）仍待一次人為失敗注入驗收。
 - [ ] 同高不同容器選項已保留（去重鍵＝高度＋容器）；本票驗收時確認清單
   與 resolve 回傳一致（選項外不提供不存在的畫質）。
