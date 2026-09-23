@@ -6,7 +6,11 @@
 
 **Blocked by:** 無.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] 合併為一函式，舊 `pick` 呼叫端全轉接；單測矩陣覆蓋（沿用 `BatchPickTest`＋補單下等價案例）
-- [ ] `pnpm test:all` 綠＋`download-video.yaml`＋`download-youtube-merge.yaml` 綠（選片結果不變）
+- [x] 合併為 `selectByPolicy(options, maxHeight, preferAudio)` 共用核心；
+  `pickByPolicy`＝preferAudio 版、`pick` 的 best／worst 走核心（等價舊排序頭尾，
+  不依賴輸入排序；height=0 直連單檔照樣可選）
+- [x] 單測：`BatchPickTest` 原 5 例全過（語意不變）＋新增 best/worst/height-0 等價案例；
+  `pnpm test:all` 綠（43/43）
+- [x] `download-video.yaml`＋`download-youtube-merge.yaml` 綠（選片結果不變）

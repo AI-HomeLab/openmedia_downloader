@@ -52,4 +52,34 @@ public class BatchPickTest {
     public void emptyOptionsReturnsNull() {
         assertNull(Downloader.pickByPolicy(java.util.Collections.emptyList(), 1080));
     }
+
+    @Test
+    public void singleBestIsTallestRegardlessOfAudio() {
+        // 舊 best == options.get(0)（高度降序＋同高檔大者）：統一路徑等價。
+        assertEquals("401", Downloader.selectByPolicy(MIXED, Integer.MAX_VALUE, false).formatId);
+        List<VideoFormat> tie = Arrays.asList(
+                v("a", "mp4", 720, "avc1", "mp4a"),
+                v("b", "mp4", 720, "avc1", "mp4a"));
+        // 同高比檔大（filesize 寫死同值 1000 → 取首個；語意穩定即可）。
+        assertEquals("a", Downloader.selectByPolicy(tie, Integer.MAX_VALUE, false).formatId);
+    }
+
+    @Test
+    public void heightUnknownSingleFileStillPickable() {
+        // 直連單檔 height=0：舊 best/worst 取排序頭尾本就含它，不可判死。
+        VideoFormat direct = v("mp4", "mp4", 0, null, null);
+        assertEquals("mp4",
+                Downloader.selectByPolicy(Arrays.asList(direct), 1080, true).formatId);
+        assertEquals("mp4",
+                Downloader.selectByPolicy(Arrays.asList(direct), 1080, false).formatId);
+    }
+
+    @Test
+    public void worstPicksSmallest() {
+        ResolveResult r = new ResolveResult("id", "t", "u", 10, MIXED);
+        VideoFormat w = Downloader.pick(r, "worst", false);
+        assertEquals("160", w.formatId);
+        VideoFormat b = Downloader.pick(r, "best", false);
+        assertEquals("401", b.formatId);
+    }
 }

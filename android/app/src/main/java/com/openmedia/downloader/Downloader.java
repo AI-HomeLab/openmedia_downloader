@@ -142,42 +142,94 @@ public final class Downloader {
     }
 
     /**
-     * 整批政策選片（ticket 06）：上限高度內取最高；有聲優先（免合併），
-     * 無有聲取最高無聲走合併；上限內全無則退回最小（不讓整批卡死）。
-     * 純函式，可單測。音檔整批不走這裡（bestaudio 即最高音質）。
+     * 選片共用核心（ticket 13）：上限高度內取最高；preferAudio 時有聲優先
+     * （免合併），無有聲取最高無聲走合併；上限內全無則退回最小（不讓整批卡死）。
+     * preferAudio=false 時即「最高可用」（等價舊單下 best：高度降序＋同高檔大者）。
+     * 純函式，可單測。音檔不走這裡（bestaudio 即最高音質）。
      */
-    static VideoFormat pickByPolicy(List<VideoFormat> options, int maxHeight) {
+    static VideoFormat selectByPolicy(List<VideoFormat> options, int maxHeight,
+                                      boolean preferAudio) {
         if (options == null || options.isEmpty()) {
             return null;
         }
-        VideoFormat bestSpoken = null;
-        VideoFormat bestMute = null;
-        VideoFormat smallest = null;
+        java.util.List<VideoFormat> videos = new java.util.ArrayList<>();
         for (VideoFormat f : options) {
-            if (!f.hasVideo() || f.height <= 0) {
+            // 高度未知（直連單檔 height=0）視為最低，照樣可選——舊 best/worst
+            // 取排序頭尾本就含它們，過濾掉會把單檔流程判死。
+            if (f.hasVideo()) {
+                videos.add(f);
+            }
+        }
+        if (videos.isEmpty()) {
+            return null;
+        }
+        java.util.List<VideoFormat> under = new java.util.ArrayList<>();
+        for (VideoFormat f : videos) {
+            if (f.height <= maxHeight) {
+                under.add(f);
+            }
+        }
+        if (preferAudio) {
+            VideoFormat spoken = tallestWithAudio(under);
+            if (spoken != null) {
+                return spoken;
+            }
+            VideoFormat mute = tallestOverall(under, false);
+            if (mute != null) {
+                return mute;
+            }
+            return smallestOverall(videos);
+        }
+        java.util.List<VideoFormat> pool = under.isEmpty() ? videos : under;
+        return tallestOverall(pool, false);
+    }
+
+    private static VideoFormat tallestWithAudio(java.util.List<VideoFormat> options) {
+        VideoFormat best = null;
+        for (VideoFormat f : options) {
+            if (!f.hasAudio()) {
                 continue;
             }
-            if (smallest == null || f.height < smallest.height) {
-                smallest = f;
+            if (best == null || f.height > best.height
+                    || (f.height == best.height && f.filesize > best.filesize)) {
+                best = f;
             }
-            if (f.height > maxHeight) {
+        }
+        return best;
+    }
+
+    private static VideoFormat tallestOverall(java.util.List<VideoFormat> options,
+                                              boolean requireAudio) {
+        VideoFormat best = null;
+        for (VideoFormat f : options) {
+            if (requireAudio && !f.hasAudio()) {
                 continue;
             }
-            if (f.hasAudio()) {
-                if (bestSpoken == null || f.height > bestSpoken.height) {
-                    bestSpoken = f;
-                }
-            } else if (bestMute == null || f.height > bestMute.height) {
-                bestMute = f;
+            if (best == null || f.height > best.height
+                    || (f.height == best.height && f.filesize > best.filesize)) {
+                best = f;
             }
         }
-        if (bestSpoken != null) {
-            return bestSpoken;
+        return best;
+    }
+
+    private static VideoFormat smallestOverall(java.util.List<VideoFormat> options) {
+        VideoFormat best = null;
+        for (VideoFormat f : options) {
+            if (!f.hasVideo()) {
+                continue;
+            }
+            if (best == null || f.height < best.height
+                    || (f.height == best.height && f.filesize < best.filesize)) {
+                best = f;
+            }
         }
-        if (bestMute != null) {
-            return bestMute;
-        }
-        return smallest;
+        return best;
+    }
+
+    /** 整批政策選片（ticket 06）：上限高度內最高、有聲優先。 */
+    static VideoFormat pickByPolicy(List<VideoFormat> options, int maxHeight) {
+        return selectByPolicy(options, maxHeight, true);
     }
 
     static VideoFormat pick(ResolveResult resolved, String format, boolean audioMode) {
@@ -199,7 +251,8 @@ public final class Downloader {
             return null;
         }
         if ("worst".equals(format)) {
-            return options.isEmpty() ? null : options.get(options.size() - 1);
+            // 等價舊行為（videoOptions 高度降序＋同高檔大者，取尾即最小，含 height=0）。
+            return smallestOverall(options);
         }
         if (format != null && format.startsWith("bestaudio")) {
             VideoFormat audio = resolved.bestAudio();
@@ -207,7 +260,8 @@ public final class Downloader {
                 return audio;
             }
         }
-        return options.isEmpty() ? null : options.get(0);
+        // best／預設：最高可用（等價舊 options.get(0)，不依賴輸入排序）。
+        return selectByPolicy(options, Integer.MAX_VALUE, false);
     }
 
     /** 檔名消毒（純函式，可單測）：只留安全字元，限長，空了退回 videoId。 */
