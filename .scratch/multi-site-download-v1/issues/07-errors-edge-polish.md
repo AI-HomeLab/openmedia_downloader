@@ -13,3 +13,13 @@
   （先行證據：DownloadChain 真鏈在 API 29 + 35 emulator 已綠；33 待跑）
 - [ ] `pnpm test:all` 綠 + `pnpm build:apk` 產物有效
 - [ ] spec 與 issues 狀態收尾，README 對應段落已同步（含支援範圍聲明）
+
+## 前票缺口（03 帶入，本票補驗）
+
+- [ ] 真合併失敗分支實機驗證：03 在機房 IP 下走不到（YouTube 媒體 403，
+  到不了合併）。mapper（ffmpeg 關鍵字→POSTPROCESS）、partial-file 保留、
+  service 存原檔＋`merged:false` 三段已有單測/程式審查覆蓋；
+  本票需在可抓媒體的環境（實機或非機房 IP）選一個純影像格式下載，
+  確認「完成（未合併）」UI 出現且原檔保留在 Downloads。
+- [ ] 同高不同容器選項已保留（去重鍵＝高度＋容器）；本票驗收時確認清單
+  與 resolve 回傳一致（選項外不提供不存在的畫質）。
