@@ -12,7 +12,7 @@ import java.net.URL;
  * 同步阻塞，只能在 background thread。
  */
 public final class ChunkedFetcher {
-    /** 單段大小（實證值：1MB 段在 emulator 連續命中，見 NativeFetchProbeTest）。 */
+    /** 單段大小（實證值：1MB 段在 emulator 連續命中）。 */
     static final long CHUNK_SIZE = 1024 * 1024;
 
     /** 下載進度（含速度；speedBps < 0 表未知）。 */
