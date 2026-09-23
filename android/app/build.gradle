@@ -10,6 +10,10 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // 只留 64-bit：對齊 yt-dlp-android（免費版無 32-bit），免得舊機裝了閃退
+        ndk {
+            abiFilters "arm64-v8a", "x86_64"
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
@@ -38,6 +42,8 @@ dependencies {
     implementation project(':capacitor-android')
     // yt-dlp-android（Maven Central）：Chaquopy CPython 3.13 + yt-dlp in-AAR，只 pin 版號
     implementation 'dev.ffmpegkit-maintained:yt-dlp-android:2.0.2'
+    // ffmpeg-kit audio 包：bestaudio → mp3 轉檔用（只留 64-bit，對齊 yt-dlp-android）
+    implementation 'dev.ffmpegkit-maintained:ffmpeg-kit-audio:8.1.8'
     testImplementation "junit:junit:$junitVersion"
     // org.json 真實作：android.jar 內的是 stub，單元測試要加這個才跑得動
     testImplementation 'org.json:json:20240303'

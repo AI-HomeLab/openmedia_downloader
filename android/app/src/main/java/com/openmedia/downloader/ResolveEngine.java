@@ -21,6 +21,16 @@ public final class ResolveEngine {
 
     public static ResolveResult resolve(android.content.Context context, String url)
             throws ResolveException {
+        return resolve(context, url, true);
+    }
+
+    /**
+     * @param requireVideo true＝一定要有可播影像（影片模式）；
+     *                     false＝純聲音也可（音檔模式，不檢查、不列畫質）。
+     */
+    public static ResolveResult resolve(android.content.Context context, String url,
+                                        boolean requireVideo)
+            throws ResolveException {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             throw new ResolveException(DownloadError.UNKNOWN, "禁止在 main thread resolve");
         }
@@ -46,8 +56,10 @@ public final class ResolveEngine {
             PyObject json = py.getModule("json");
             String dumped = json.callAttr("dumps", info).toJava(String.class);
             ResolveResult result = ResolveResult.parse(dumped);
-            if (result.title.isEmpty() || !result.hasPlayableVideo()) {
-                throw new ResolveException(DownloadError.EXTRACT, "找不到可下載的影片格式");
+            if (result.title.isEmpty()
+                    || (requireVideo && !result.hasPlayableVideo())) {
+                throw new ResolveException(DownloadError.EXTRACT,
+                        requireVideo ? "找不到可下載的影片格式" : "找不到可下載的音檔");
             }
             return result;
         } catch (ResolveException e) {

@@ -51,6 +51,9 @@ public class YtDlpPlugin extends Plugin {
                     data.put("fileUri", fileUri.toString());
                     data.put("fileName", fileName);
                     data.put("merged", merged);
+                    if (!merged) {
+                        data.put("code", DownloadError.POSTPROCESS.name());
+                    }
                     call.resolve(data);
                 });
             }
@@ -76,9 +79,11 @@ public class YtDlpPlugin extends Plugin {
             return;
         }
         // 02 只有 video/bestaudio 兩檔；03 起吃 formatIndex（resolve 清單的 index）。
+        // 音檔走 bestaudio/best（無純音軌時退回單檔，04 再轉 mp3）。
         String kind = call.getString("kind", "video");
-        String format = "audio".equals(kind) ? "bestaudio" : call.getString("format", "best");
-        int formatIndex = call.getInt("formatIndex", -1);
+        boolean isAudio = "audio".equals(kind);
+        String format = isAudio ? "bestaudio/best" : call.getString("format", "best");
+        int formatIndex = isAudio ? -1 : call.getInt("formatIndex", -1);
         if (formatIndex >= 0) {
             String picked = pickFormat(url, formatIndex);
             if (picked == null) {
@@ -87,7 +92,7 @@ public class YtDlpPlugin extends Plugin {
             }
             format = picked;
         }
-        if (!DownloadService.startDownload(getContext(), url, format)) {
+        if (!DownloadService.startDownload(getContext(), url, format, kind)) {
             call.reject("BUSY", DownloadError.UNKNOWN.name());
             return;
         }
@@ -120,10 +125,11 @@ public class YtDlpPlugin extends Plugin {
         }
         currentState = "resolving";
         final String callbackId = call.getCallbackId();
+        final boolean requireVideo = !"audio".equals(call.getString("kind", "video"));
         getBridge().saveCall(call);
         executor.submit(() -> {
             try {
-                ResolveResult result = ResolveEngine.resolve(getContext(), url);
+                ResolveResult result = ResolveEngine.resolve(getContext(), url, requireVideo);
                 lastResolve = result;
                 lastResolveUrl = url;
                 List<VideoFormat> options = result.videoOptions();

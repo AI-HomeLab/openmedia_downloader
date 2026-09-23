@@ -18,6 +18,7 @@ export default function Home() {
   const [options, setOptions] = useState<QualityOption[] | null>(null);
   const [picked, setPicked] = useState(0);
   const [merged, setMerged] = useState(true);
+  const [doneCode, setDoneCode] = useState('');
 
   // 進度走 event，不 polling；卸載時清 listener（見 gotchas）。
   // mounted 旗標防「卸載先於 addListener resolve」的殘留訂閱。
@@ -43,7 +44,7 @@ export default function Home() {
   async function resolve() {
     dispatch({ type: 'start' });
     try {
-      const r = await YtDlp.resolve({ url });
+      const r = await YtDlp.resolve({ url, kind });
       setTitle(r.title);
       setOptions(r.options);
       setPicked(0);
@@ -64,6 +65,7 @@ export default function Home() {
         kind === 'audio' ? { url, kind } : { url, kind, formatIndex: picked },
       );
       setMerged(r.merged);
+      setDoneCode(r.code ?? '');
       dispatch({ type: 'done', fileUri: r.fileUri, fileName: r.fileName });
     } catch (e) {
       // Capacitor reject 帶 code（六碼之一）；INVALID_URL/BUSY 是呼叫端契約錯，不在六碼內。
@@ -110,7 +112,8 @@ export default function Home() {
       {resolved && !busy && (
         <>
           <p>{title}</p>
-          {(options ?? []).map((o) => (
+          {kind === 'video' &&
+            (options ?? []).map((o) => (
             <label key={o.index} style={{ display: 'block', minHeight: 44 }}>
               <input
                 type="radio"
@@ -150,7 +153,7 @@ export default function Home() {
       {ui.state === 'error' && <p className="error">失敗：{ui.error}</p>}
       {ui.state === 'done' && (
         <>
-          <p>{merged ? '完成' : '完成（未合併）'}：{ui.fileName}</p>
+          <p>{merged ? '完成' : kind === 'audio' ? '完成（未轉檔）' : '完成（未合併）'}：{ui.fileName}{!merged && doneCode ? `（${doneCode}）` : ''}</p>
           <button onClick={() => YtDlp.openFile({ uri: ui.fileUri })}>開啟</button>
         </>
       )}

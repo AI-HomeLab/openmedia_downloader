@@ -31,6 +31,7 @@ public class DownloadService extends Service {
             "com.openmedia.downloader.action.CANCEL";
     public static final String EXTRA_URL = "url";
     public static final String EXTRA_FORMAT = "format";
+    public static final String EXTRA_KIND = "kind";
 
     private static final String CHANNEL_ID = "download";
     private static final int NOTIFICATION_ID = 1;
@@ -61,6 +62,11 @@ public class DownloadService extends Service {
 
     /** 已在跑就拒絕（回 false），呼叫方報 BUSY。 */
     public static boolean startDownload(Context context, String url, String format) {
+        return startDownload(context, url, format, "video");
+    }
+
+    /** 已在跑就拒絕（回 false），呼叫方報 BUSY。 */
+    public static boolean startDownload(Context context, String url, String format, String kind) {
         if (!running.compareAndSet(false, true)) {
             return false;
         }
@@ -68,7 +74,8 @@ public class DownloadService extends Service {
         Intent intent = new Intent(context, DownloadService.class)
                 .setAction(ACTION_DOWNLOAD)
                 .putExtra(EXTRA_URL, url)
-                .putExtra(EXTRA_FORMAT, format);
+                .putExtra(EXTRA_FORMAT, format)
+                .putExtra(EXTRA_KIND, kind);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent);
         } else {
@@ -106,13 +113,16 @@ public class DownloadService extends Service {
         if (ACTION_DOWNLOAD.equals(intent.getAction())) {
             String url = intent.getStringExtra(EXTRA_URL);
             String format = intent.getStringExtra(EXTRA_FORMAT);
+            String kind = intent.getStringExtra(EXTRA_KIND);
             startForeground(NOTIFICATION_ID, buildNotification(0, "準備下載…"));
-            current = executor.submit(() -> runDownload(url, format));
+            current = executor.submit(() -> runDownload(url, format, kind));
         }
         return START_NOT_STICKY;
     }
 
-    private void runDownload(String url, String format) {
+    private AudioTranscoder transcoder = new FFmpegAudioTranscoder();
+
+    private void runDownload(String url, String format, String kind) {
         File staging = new File(getCacheDir(), "dl-" + System.currentTimeMillis());
         try {
             File landed = Downloader.download(this, url, staging, format,
@@ -131,14 +141,31 @@ public class DownloadService extends Service {
                 finishCancelled();
                 return;
             }
-            Uri uri = MediaStoreSaver.save(this, landed);
+            File finalFile = landed;
+            boolean processed = true;
+            if ("audio".equals(kind)) {
+                // bestaudio 下載檔 → mp3；失敗走 POSTPROCESS＋留原檔（與合併同一語意）。
+                // Throwable 全收（含 native 載入失敗）：轉檔永遠不能把整單拖成懸空。
+                try {
+                    finalFile = transcoder.transcode(landed);
+                } catch (DownloadException e) {
+                    if (e.getPartialFile() != null) {
+                        finalFile = e.getPartialFile();
+                    }
+                    processed = false;
+                } catch (Throwable t) {
+                    android.util.Log.e("DownloadService", "transcode 意外失敗，留原檔", t);
+                    processed = false;
+                }
+            }
+            Uri uri = MediaStoreSaver.save(this, finalFile);
             deleteQuietly(staging);
             running.set(false);
             stopForeground(true);
             stopSelf();
             Listener l = listener;
             if (l != null) {
-                l.onDone(uri, MediaStoreSaver.displayName(this, uri), true);
+                l.onDone(uri, MediaStoreSaver.displayName(this, uri), processed);
             }
         } catch (DownloadCancelled e) {
             finishCancelled();

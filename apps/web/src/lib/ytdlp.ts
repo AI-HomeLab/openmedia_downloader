@@ -31,10 +31,10 @@ export interface YtDlpPlugin {
     kind: DownloadKind;
     format?: string;
     formatIndex?: number;
-  }): Promise<{ fileUri: string; fileName: string; merged: boolean }>;
+  }): Promise<{ fileUri: string; fileName: string; merged: boolean; code?: string }>;
   cancel(): Promise<void>;
   getStatus(): Promise<{ state: string }>;
-  resolve(options: { url: string }): Promise<ResolveResult>;
+  resolve(options: { url: string; kind: DownloadKind }): Promise<ResolveResult>;
   openFile(options: { uri: string }): Promise<void>;
   addListener(
     eventName: 'progress',
