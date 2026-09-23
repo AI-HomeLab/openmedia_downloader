@@ -24,7 +24,7 @@ public class AudioDownloadTest {
         Context ctx = ApplicationProvider.getApplicationContext();
         File outDir = new File(ctx.getCacheDir(),
                 "audio-" + System.currentTimeMillis());
-        File audio = Downloader.download(ctx, URL, outDir, "bestaudio/best", null);
+        File audio = Downloader.download(ctx, URL, outDir, "bestaudio/best", "audio", null);
         assertTrue(audio.exists() && audio.length() > 0);
 
         File mp3 = new FFmpegAudioTranscoder().transcode(audio);

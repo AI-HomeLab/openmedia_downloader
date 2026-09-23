@@ -4,118 +4,154 @@ import android.content.Context;
 import android.os.Looper;
 
 import java.io.File;
-import java.util.HashSet;
-import java.util.Set;
-
-import dev.ffmpegkit_maintained.ytdlp.DownloadProgressCallback;
-import dev.ffmpegkit_maintained.ytdlp.YtDlp;
-import dev.ffmpegkit_maintained.ytdlp.YtDlpException;
-import dev.ffmpegkit_maintained.ytdlp.YtDlpRequest;
-import dev.ffmpegkit_maintained.ytdlp.YtDlpResponse;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 同步下載器：包 library 的 execute，下載單一公開影片。
- * 呼叫者必須在 background thread（library 同步 API 的硬性要求），main thread 呼叫視為 bug。
+ * 下載管線入口（05 起）：resolve → 分段抓（→合併）→ 回傳媒體檔。
+ * 不再經 YtDlp.execute（整包抓在 Android 上吃媒體 403）。
+ * 同步阻塞，呼叫者必須在 background thread（有 Looper guard）。
  */
 public final class Downloader {
     /** 進度回傳（library 從 background thread 呼叫）。 */
     public interface ProgressListener {
-        void onProgress(float percent, long etaSeconds, String line);
+        void onProgress(float percent, long etaSeconds, long speedBps, String line);
     }
 
     private Downloader() {
     }
 
     /**
-     * @param format yt-dlp -f 語意（例如 "best"、"worst"）；null/空字串用 yt-dlp 預設。
-     *               正式流程的 format 字串一律來自 03 的 resolve 清單，不手寫編號。
-     * @return 落地檔案（本次呼叫新增的檔案中最新者）
+     * @param format formatId（resolve 清單的 opaque token），或 best/worst/bestaudio 語意；
+     *               null/空＝預設最佳。
+     * @param kind "video" 或 "audio"（audio 不要求影像、只取音軌）。
+     * @return 落地檔案（outputDir 內本次新增者）
      */
     public static File download(Context context, String url, File outputDir,
-                                String format, ProgressListener listener)
+                                String format, String kind, ProgressListener listener)
+            throws DownloadException {
+        return download(context, url, outputDir, format, kind, listener, null);
+    }
+
+    static File download(Context context, String url, File outputDir,
+                         String format, String kind, ProgressListener listener,
+                         AtomicBoolean cancelFlag)
             throws DownloadException {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             throw new DownloadException(DownloadError.UNKNOWN, "禁止在 main thread 下載");
         }
-        YtDlpEngine.initOnce(context);
+        boolean audioMode = "audio".equals(kind);
+        ResolveResult resolved;
+        try {
+            resolved = ResolveEngine.resolve(context, url, !audioMode);
+        } catch (ResolveException e) {
+            throw new DownloadException(e.getCode(), e.getMessage(), e);
+        }
+        VideoFormat picked = pick(resolved, format, audioMode);
+        if (picked == null || picked.url == null) {
+            throw new DownloadException(DownloadError.EXTRACT, "沒有可下載的格式");
+        }
         if (!outputDir.isDirectory() && !outputDir.mkdirs()) {
             throw new DownloadException(DownloadError.STORAGE, "建輸出目錄失敗");
         }
-        Set<String> before = listNames(outputDir);
-        String template = new File(outputDir, "%(title)s.%(ext)s").getAbsolutePath();
-        YtDlpRequest request = new YtDlpRequest(url)
-                .setOutputTemplate(template)
-                .addOption("--no-playlist");
-        if (format != null && !format.isEmpty()) {
-            request.addOption("-f", format);
+        String base = sanitize(resolved.title.isEmpty() ? resolved.videoId : resolved.title);
+
+        VideoFormat companion = null;
+        if (!audioMode && !picked.hasAudio()) {
+            companion = resolved.bestAudio();
+            if (companion != null && (companion.url == null
+                    || companion.formatId.equals(picked.formatId))) {
+                companion = null; // 無伴可合，原樣回（UI 標無聲）
+            }
         }
-        DownloadProgressCallback callback = null;
+
+        // 進度尺度：抓取佔 0-90，合併尾段 90-100。
+        File videoFile = new File(outputDir, "dl-" + base + "." + picked.ext);
+        fetchOne(picked, videoFile, listener, cancelFlag, 0, companion == null ? 90 : 45);
+        verifySize(videoFile, picked.filesize);
+
+        if (companion == null) {
+            return videoFile;
+        }
+        File audioFile = new File(outputDir, "dl-" + base + ".m4a");
+        fetchOne(companion, audioFile, listener, cancelFlag, 45, 90);
         if (listener != null) {
-            callback = (progress, eta, line) -> listener.onProgress(progress, eta, line);
+            listener.onProgress(95, 0, -1, "");
         }
-        final YtDlpResponse response;
-        try {
-            response = YtDlp.execute(request, callback);
-        } catch (RuntimeException e) {
-            // 進度回呼的取消控制流：原樣重拋，不包成 DownloadException。
-            throw e;
-        } catch (YtDlpException e) {
-            DownloadCancelled cancelled = findCancelled(e);
-            if (cancelled != null) {
-                throw cancelled;
-            }
-            DownloadError code = ErrorMapper.fromMessage(e.getMessage());
-            java.io.File partial = code == DownloadError.POSTPROCESS
-                    ? newestNewFile(outputDir, before) : null;
-            throw new DownloadException(code, "下載失敗", partial, e);
-        }
-        if (!response.isSuccess()) {
-            throw new DownloadException(
-                    DownloadError.EXTRACT, "yt-dlp exit=" + response.getExitCode());
-        }
-        File landed = newestNewFile(outputDir, before);
-        if (landed == null) {
-            throw new DownloadException(DownloadError.STORAGE, "下載成功但找不到檔案");
-        }
-        return landed;
+        return MediaMerger.merge(videoFile, audioFile, outputDir, base);
     }
 
-    private static DownloadCancelled findCancelled(Throwable t) {
-        while (t != null) {
-            if (t instanceof DownloadCancelled) {
-                return (DownloadCancelled) t;
-            }
-            t = t.getCause();
+    /** 落檔基本驗證：空檔必死；已知總長時差太多也死（NETWORK）。 */
+    static void verifySize(File file, long expected) throws DownloadException {
+        long len = file.length();
+        if (len <= 0) {
+            throw new DownloadException(DownloadError.NETWORK, "下載為空檔");
         }
-        return null;
+        if (expected > 0 && len < expected) {
+            throw new DownloadException(DownloadError.NETWORK,
+                    "檔案不完整（" + len + "/" + expected + "）");
+        }
     }
 
-    private static Set<String> listNames(File dir) {
-        Set<String> names = new HashSet<>();
-        File[] files = dir.listFiles();
-        if (files != null) {
-            for (File f : files) {
-                names.add(f.getName());
-            }
-        }
-        return names;
+    private static void fetchOne(VideoFormat format, File dest,
+                                 ProgressListener listener, AtomicBoolean cancelFlag,
+                                 int rangeStart, int rangeEnd) throws DownloadException {
+        long total = format.filesize;
+        ChunkedFetcher.fetch(format.url, dest, total,
+                (downloaded, partTotal, speed) -> {
+                    if (listener == null) {
+                        return;
+                    }
+                    float percent;
+                    long eta;
+                    if (partTotal > 0) {
+                        percent = rangeStart
+                                + (downloaded * (rangeEnd - rangeStart) / (float) partTotal);
+                        eta = speed > 0 ? (partTotal - downloaded) / speed : 0;
+                    } else {
+                        percent = -1f;
+                        eta = 0;
+                    }
+                    listener.onProgress(percent, eta, speed, "");
+                }, cancelFlag);
     }
 
-    /** 只在本次呼叫新增的檔案中挑最新的；舊殘留檔不算數。 */
-    private static File newestNewFile(File dir, Set<String> before) {
-        File[] files = dir.listFiles();
-        if (files == null) {
+    static VideoFormat pick(ResolveResult resolved, String format, boolean audioMode) {
+        if (audioMode) {
+            VideoFormat audio = resolved.bestAudio();
+            if (audio != null) {
+                return audio;
+            }
+        }
+        List<VideoFormat> options = resolved.videoOptions();
+        if (format != null && !format.isEmpty()
+                && !"best".equals(format) && !"worst".equals(format)
+                && !format.startsWith("bestaudio")) {
+            for (VideoFormat f : options) {
+                if (format.equals(f.formatId)) {
+                    return f;
+                }
+            }
             return null;
         }
-        File newest = null;
-        for (File f : files) {
-            if (before.contains(f.getName())) {
-                continue;
-            }
-            if (newest == null || f.lastModified() > newest.lastModified()) {
-                newest = f;
+        if ("worst".equals(format)) {
+            return options.isEmpty() ? null : options.get(options.size() - 1);
+        }
+        if (format != null && format.startsWith("bestaudio")) {
+            VideoFormat audio = resolved.bestAudio();
+            if (audio != null) {
+                return audio;
             }
         }
-        return newest;
+        return options.isEmpty() ? null : options.get(0);
+    }
+
+    /** 檔名消毒（純函式，可單測）：只留安全字元，限長，空了退回 videoId。 */
+    static String sanitize(String title) {
+        String s = title.replaceAll("[^a-zA-Z0-9-_.\u4e00-\u9fff ]", "_").trim();
+        if (s.length() > 80) {
+            s = s.substring(0, 80);
+        }
+        return s.isEmpty() ? "video" : s;
     }
 }

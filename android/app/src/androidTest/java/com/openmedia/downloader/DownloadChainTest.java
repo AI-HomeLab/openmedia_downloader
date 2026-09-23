@@ -38,8 +38,8 @@ public class DownloadChainTest {
                 "chain-" + System.currentTimeMillis());
         AtomicBoolean sawProgress = new AtomicBoolean(false);
 
-        File landed = Downloader.download(ctx, DIRECT_MP4, outDir, null,
-                (percent, eta, line) -> sawProgress.set(true));
+        File landed = Downloader.download(ctx, DIRECT_MP4, outDir, null, "video",
+                (percent, eta, speed, line) -> sawProgress.set(true));
 
         assertTrue("檔案應落地", landed.exists() && landed.length() > 0);
         assertTrue("應有進度回傳", sawProgress.get());
@@ -53,7 +53,7 @@ public class DownloadChainTest {
                 "chain-yt-" + System.currentTimeMillis());
         try {
             // 機房 IP 吃 403 時走這裡：證明 dispatch 進了 yt-dlp 且錯誤有分級。
-            File landed = Downloader.download(ctx, YOUTUBE_VIDEO, outDir, "worst", null);
+            File landed = Downloader.download(ctx, YOUTUBE_VIDEO, outDir, "worst", "video", null);
             assertTrue(landed.exists());
         } catch (DownloadException e) {
             // EXTRACT = dispatch 成功、站方拒絕；NETWORK = 環境網路問題（flake，非程式錯）。

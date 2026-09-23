@@ -15,9 +15,12 @@ public class VideoFormat {
     public final String vcodec;
     public final String acodec;
     public final String note;
+    /** 直連（native 管線下載用；永不進 UI，UI 只拿 index）。 */
+    public final String url;
 
     public VideoFormat(String formatId, String ext, int width, int height,
-                       long filesize, String vcodec, String acodec, String note) {
+                       long filesize, String vcodec, String acodec, String note,
+                       String url) {
         this.formatId = formatId;
         this.ext = ext;
         this.width = width;
@@ -26,6 +29,7 @@ public class VideoFormat {
         this.vcodec = vcodec;
         this.acodec = acodec;
         this.note = note;
+        this.url = url;
     }
 
     static VideoFormat fromJson(JSONObject o) {
@@ -41,7 +45,8 @@ public class VideoFormat {
                 size,
                 strOrNull(o, "vcodec", null),
                 strOrNull(o, "acodec", null),
-                strOrNull(o, "format_note", ""));
+                strOrNull(o, "format_note", ""),
+                strOrNull(o, "url", null));
     }
 
     /** 明確 null / 缺鍵一律回 fallback（org.json 對 null 的預設行為不穩定， sober 處理）。 */

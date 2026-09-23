@@ -55,6 +55,13 @@ public class ResolveResultTest {
     }
 
     @Test
+    public void bestAudioPrefersAudioOnly() throws Exception {
+        ResolveResult r = ResolveResult.parse(fixture("resolve-sample.json"));
+        VideoFormat audio = r.bestAudio();
+        assertTrue(audio != null && audio.hasAudio());
+    }
+
+    @Test
     public void genericSingleFileHasNoDimensionsButIsPlayable() throws Exception {
         // 直連單檔（generic extractor）：無 width/height、vcodec null，但可播且假設有聲。
         String json = "{\"id\":\"x\",\"title\":\"t\","

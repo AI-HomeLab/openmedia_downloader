@@ -28,7 +28,7 @@ public class ServiceAudioTest {
         AtomicReference<String> fileName = new AtomicReference<>("");
         DownloadService.setListener(new DownloadService.Listener() {
             @Override
-            public void onProgress(float percent, long etaSeconds) {
+            public void onProgress(float percent, long etaSeconds, long speedBps) {
             }
 
             @Override

@@ -11,10 +11,18 @@ yt-dlp 只做解析拿直連 → Android 原生分段抓（1MB 一段，逐段�
 
 **Blocked by:** 04 — 音檔 mp3 模式.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] 同一 URL：解析拿直連 → 分段抓 → 拼回完整檔（大小/可播驗證）
-- [ ] 分離式影音：兩路分段抓 → ffmpeg-kit 合併 → 單一可播檔
-- [ ] 進度/速度/ETA 照段回報；取消丟棄半成品；重試從頭來（不斷點續傳）
-- [ ] 分段上限與單段大小有定值（預設 1MB 起跳，實測再調），行為寫進票據
-- [ ] 舊 `YtDlp.execute` 下載路徑退役（resolve 直連模組保留），無付費依賴殘留
+- [x] 同一 URL：解析拿直連 → 分段抓 → 拼回完整檔（大小/可播驗證）
+- [x] 分離式影音：兩路分段抓 → ffmpeg-kit 合併 → 單一可播檔
+  （合併機械以同檔雙路實證；YouTube 真媒體併單見缺口）
+- [x] 進度/速度/ETA 照段回報；取消丟棄半成品；重試從頭來（不斷點續傳）
+  （速度欄端到端打通，02 的 deferred 順手關掉）
+- [x] 分段上限與單段大小有定值（1MB，`CHUNK_SIZE`；未知總長時 percent=-1 不定態）
+- [x] 舊 `YtDlp.execute` 下載路徑退役（`Downloader` 改寫；`YtDlpEngine.init` 保留給直譯器）
+
+驗收記錄：emulator omd-35。connected 10/10、單測 15/15、web typecheck+vitest 綠。
+已知缺口：驗收當下 YouTube 媒體 15 檔全 403（含稍早 206 過的 2160p——站方動態擋），
+真媒體合併單留待可抓環境補驗（併入 08 矩陣）；`merged:false` UI 同。
+附帶修：分段 HTTP 碼顯式分級（403/429→EXTRACT，其餘→NETWORK）；
+檔名消毒；取消旗直傳 fetcher（每段檢查＋回呼拋出雙保險）。

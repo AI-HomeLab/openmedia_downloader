@@ -38,7 +38,7 @@ public class DownloadService extends Service {
 
     /** Plugin 側掛的監聽（主執行緒回呼由呼叫方保證）。 */
     public interface Listener {
-        void onProgress(float percent, long etaSeconds);
+        void onProgress(float percent, long etaSeconds, long speedBps);
 
         void onDone(Uri fileUri, String fileName, boolean merged);
 
@@ -125,17 +125,17 @@ public class DownloadService extends Service {
     private void runDownload(String url, String format, String kind) {
         File staging = new File(getCacheDir(), "dl-" + System.currentTimeMillis());
         try {
-            File landed = Downloader.download(this, url, staging, format,
-                    (percent, eta, line) -> {
+            File landed = Downloader.download(this, url, staging, format, kind,
+                    (percent, eta, speed, line) -> {
                         if (cancelFlag.get()) {
                             throw new DownloadCancelled();
                         }
-                        updateNotification((int) percent, eta);
+                        updateNotification((int) percent, eta, speed);
                         Listener l = listener;
                         if (l != null) {
-                            l.onProgress(percent, eta);
+                            l.onProgress(percent, eta, speed);
                         }
-                    });
+                    }, cancelFlag);
             if (cancelFlag.get()) {
                 deleteQuietly(staging);
                 finishCancelled();
@@ -189,6 +189,8 @@ public class DownloadService extends Service {
                             "partial save failed: " + ignored.getMessage());
                 }
             }
+            // 一般錯誤路不留半成品（POSTPROCESS 分支已先存走原檔）。
+            deleteQuietly(staging);
             running.set(false);
             stopForeground(true);
             stopSelf();
@@ -237,12 +239,21 @@ public class DownloadService extends Service {
                 .build();
     }
 
-    private void updateNotification(int percent, long eta) {
+    private void updateNotification(int percent, long eta, long speedBps) {
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (nm != null) {
-            nm.notify(NOTIFICATION_ID,
-                    buildNotification(percent, percent + "%・ETA " + eta + "s"));
+            String text = percent >= 0 ? percent + "%・ETA " + eta + "s" : "下載中…";
+            String speed = speedBps > 0 ? "・" + formatSpeed(speedBps) : "";
+            nm.notify(NOTIFICATION_ID, buildNotification(Math.max(percent, 0), text + speed));
         }
+    }
+
+    static String formatSpeed(long bps) {
+        double kb = bps / 1024.0;
+        if (kb < 1024) {
+            return String.format(java.util.Locale.US, "%.0f KB/s", kb);
+        }
+        return String.format(java.util.Locale.US, "%.1f MB/s", kb / 1024);
     }
 
     private static void deleteQuietly(File dir) {

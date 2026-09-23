@@ -35,10 +35,11 @@ public class YtDlpPlugin extends Plugin {
     public void load() {
         DownloadService.setListener(new DownloadService.Listener() {
             @Override
-            public void onProgress(float percent, long etaSeconds) {
+            public void onProgress(float percent, long etaSeconds, long speedBps) {
                 JSObject data = new JSObject();
                 data.put("percent", percent);
                 data.put("etaSeconds", etaSeconds);
+                data.put("speedBps", speedBps);
                 data.put("line", "");
                 main.post(() -> notifyListeners("progress", data));
             }

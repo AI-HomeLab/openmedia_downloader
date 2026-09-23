@@ -10,6 +10,11 @@ function fmtSize(bytes: number): string {
   return mb >= 1000 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
 }
 
+function fmtSpeed(bps: number): string {
+  const kb = bps / 1024;
+  return kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB/s` : `${kb.toFixed(0)} KB/s`;
+}
+
 export default function Home() {
   const [url, setUrl] = useState('');
   const [kind, setKind] = useState<DownloadKind>('video');
@@ -26,7 +31,12 @@ export default function Home() {
     let alive = true;
     let handle: { remove: () => void } | undefined;
     YtDlp.addListener('progress', (e) => {
-      dispatch({ type: 'progress', percent: e.percent, etaSeconds: e.etaSeconds });
+      dispatch({
+        type: 'progress',
+        percent: e.percent,
+        etaSeconds: e.etaSeconds,
+        speed: e.speedBps,
+      });
     }).then((h) => {
       if (alive) handle = h;
       else h.remove();
@@ -146,7 +156,8 @@ export default function Home() {
             <div style={{ width: `${ui.percent}%` }} />
           </div>
           <p>
-            {ui.percent.toFixed(0)}%・ETA {ui.etaSeconds}s
+            {ui.percent >= 0 ? `${ui.percent.toFixed(0)}%・` : ''}ETA {ui.etaSeconds}s
+            {ui.speedBps > 0 ? `・${fmtSpeed(ui.speedBps)}` : ''}
           </p>
         </>
       )}

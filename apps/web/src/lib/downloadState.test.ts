@@ -5,7 +5,7 @@ describe('download state machine', () => {
   it('idle → resolving → downloading → done', () => {
     let s = reducer(initialUiState, { type: 'start' });
     expect(s.state).toBe('resolving');
-    s = reducer(s, { type: 'progress', percent: 42, etaSeconds: 10 });
+    s = reducer(s, { type: 'progress', percent: 42, etaSeconds: 10, speed: 1000 });
     expect(s.state).toBe('downloading');
     expect(s.percent).toBe(42);
     s = reducer(s, { type: 'done', fileUri: 'u', fileName: 'f' });
@@ -23,7 +23,7 @@ describe('download state machine', () => {
   });
 
   it('progress ignored when idle', () => {
-    const s = reducer(initialUiState, { type: 'progress', percent: 99, etaSeconds: 0 });
+    const s = reducer(initialUiState, { type: 'progress', percent: 99, etaSeconds: 0, speed: -1 });
     expect(s.state).toBe('idle');
   });
 });

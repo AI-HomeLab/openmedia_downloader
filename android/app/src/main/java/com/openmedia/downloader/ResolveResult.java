@@ -62,6 +62,23 @@ public class ResolveResult {
         return false;
     }
 
+    /** 最佳純音軌（無則退回第一個含聲格式；都沒有回 null）。合併時找伴用。 */
+    public VideoFormat bestAudio() {
+        VideoFormat fallback = null;
+        for (VideoFormat f : formats) {
+            if (!f.hasAudio()) {
+                continue;
+            }
+            if (!f.hasVideo()) {
+                return f;
+            }
+            if (fallback == null) {
+                fallback = f;
+            }
+        }
+        return fallback;
+    }
+
     /**
      * UI 畫質清單：只留含影像格式，按高度降序、同（高度、容器）留檔案最大者；
      * 無尺寸資訊（直連單檔）排最後但保留——它們通常是免合併單檔。

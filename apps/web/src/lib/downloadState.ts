@@ -12,6 +12,7 @@ export interface UiState {
   state: DownloadState;
   percent: number;
   etaSeconds: number;
+  speedBps: number;
   fileUri: string;
   fileName: string;
   error: string;
@@ -21,6 +22,7 @@ export const initialUiState: UiState = {
   state: 'idle',
   percent: 0,
   etaSeconds: 0,
+  speedBps: -1,
   fileUri: '',
   fileName: '',
   error: '',
@@ -28,7 +30,7 @@ export const initialUiState: UiState = {
 
 export type Action =
   | { type: 'start' }
-  | { type: 'progress'; percent: number; etaSeconds: number }
+  | { type: 'progress'; percent: number; etaSeconds: number; speed: number }
   | { type: 'done'; fileUri: string; fileName: string }
   | { type: 'error'; error: string }
   | { type: 'cancel' }
@@ -40,7 +42,13 @@ export function reducer(s: UiState, a: Action): UiState {
       return { ...initialUiState, state: 'resolving' };
     case 'progress':
       if (s.state !== 'resolving' && s.state !== 'downloading') return s;
-      return { ...s, state: 'downloading', percent: a.percent, etaSeconds: a.etaSeconds };
+      return {
+        ...s,
+        state: 'downloading',
+        percent: a.percent,
+        etaSeconds: a.etaSeconds,
+        speedBps: a.speed,
+      };
     case 'done':
     case 'error':
       if (s.state === 'cancelled') return s;

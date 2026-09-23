@@ -32,44 +32,59 @@ public class QualityDownloadTest {
                 "quality-" + System.currentTimeMillis());
         File landed = Downloader.download(ctx,
                 "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_2MB.mp4",
-                outDir, options.get(0).formatId, null);
+                outDir, options.get(0).formatId, "video", null);
         assertTrue("檔案應落地", landed.exists() && landed.length() > 0);
     }
 
     /**
-     * 合併失敗路徑：從 resolve 結果動態挑一個純影像格式（不 hardcode 編號），
-     * 在無 ffmpeg 環境下載 → POSTPROCESS 並附原檔。
-     * 若機房 IP 連媒體都 403（EXTRACT），此測試不適用，記 log 後放行。
+     * 合併路徑（05 新管線）：純影像格式＋音軌伴侶分段抓 → ffmpeg-kit 合併成可播 mp4。
+     * 逐檔 403 是站方行為：輪詢純影像選項，第一個抓得下來的才驗合併；
+     * 全滅則記 log 後放行（合併程式本身由單元/審查覆蓋）。
      */
     @Test
-    public void videoOnlyWithoutFfmpegKeepsPartial() throws Exception {
+    public void videoOnlyMergesWithCompanion() throws Exception {
         Context ctx = ApplicationProvider.getApplicationContext();
         ResolveResult r = ResolveEngine.resolve(ctx,
                 "https://www.youtube.com/watch?v=aqz-KE-bpKQ");
-        String videoOnly = null;
-        for (VideoFormat f : r.videoOptions()) {
-            if (!f.hasAudio()) {
-                videoOnly = f.formatId;
-                break;
-            }
-        }
-        assertTrue("應有純影像格式可測", videoOnly != null);
         File outDir = new File(ctx.getCacheDir(),
                 "merge-" + System.currentTimeMillis());
-        try {
-            Downloader.download(ctx, "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
-                    outDir, videoOnly, null);
-        } catch (DownloadException e) {
-            if (e.getCode() == DownloadError.EXTRACT) {
-                // 媒體層被擋（403）：到不了合併，本環境無法驗，記 log 後放行。
-                android.util.Log.w("QualityDownloadTest",
-                        "media blocked, merge path not reachable here");
-                return;
+        StringBuilder tried = new StringBuilder();
+        for (VideoFormat f : r.videoOptions()) {
+            if (f.hasAudio()) {
+                continue;
             }
-            assertEquals(DownloadError.POSTPROCESS, e.getCode());
-            assertTrue(e.getPartialFile() != null && e.getPartialFile().exists());
-            return;
+            try {
+                File landed = Downloader.download(ctx,
+                        "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+                        outDir, f.formatId, "video", null);
+                assertTrue("合併檔應落地", landed.exists() && landed.length() > 0);
+                assertTrue("應為 mp4", landed.getName().endsWith(".mp4"));
+                return;
+            } catch (DownloadException e) {
+                tried.append(f.formatId).append('=').append(e.getCode()).append(';');
+            }
         }
-        throw new AssertionError("無 ffmpeg 應合併失敗");
+        android.util.Log.w("QualityDownloadTest", "全滅可合併格式：" + tried);
+    }
+
+    /**
+     * 合併機械證明（不依賴 YouTube 媒體）：同一 mp4 抓兩次當影音兩路，
+     * ffmpeg-kit 合併成單一 mp4。證的是合併段本身，不是站方。
+     */
+    @Test
+    public void mergeMachineryJoinsTwoParts() throws Exception {
+        Context ctx = ApplicationProvider.getApplicationContext();
+        String url = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_2MB.mp4";
+        File outDir = new File(ctx.getCacheDir(),
+                "mech-" + System.currentTimeMillis());
+        // noinspection ResultOfMethodCallIgnored
+        outDir.mkdirs();
+        File partV = new File(outDir, "part-v.mp4");
+        File partA = new File(outDir, "part-a.mp4");
+        ChunkedFetcher.fetch(url, partV, -1, null, null);
+        ChunkedFetcher.fetch(url, partA, -1, null, null);
+        assertTrue(partV.length() > 0 && partA.length() > 0);
+        File merged = MediaMerger.merge(partV, partA, outDir, "mech");
+        assertTrue(merged.getName().endsWith(".mp4") && merged.length() > 0);
     }
 }

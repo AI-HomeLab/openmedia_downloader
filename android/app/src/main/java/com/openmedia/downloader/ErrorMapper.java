@@ -33,7 +33,8 @@ public final class ErrorMapper {
                 "video unavailable", "video is unavailable", "not available", "has been removed", "has been deleted",
                 "not available in your country", "requested format not available",
                 "unsupported url", "no video formats found", "unable to extract",
-                "http error 403", "http error 429", "forbidden")) {
+                "http error 403", "http error 429", "http 403", "http 429",
+                "forbidden")) {
             return DownloadError.EXTRACT;
         }
         return DownloadError.UNKNOWN;

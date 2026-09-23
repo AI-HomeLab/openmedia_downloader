@@ -38,6 +38,8 @@ public class ErrorMapperTest {
 
     @Test
     public void storageKeywords() {
+        assertEquals(DownloadError.EXTRACT,
+                ErrorMapper.fromMessage("分段下載被拒（HTTP 403）"));
         assertEquals(DownloadError.STORAGE,
                 ErrorMapper.fromMessage("OSError: [Errno 28] No space left on device"));
         assertEquals(DownloadError.STORAGE,

@@ -9,6 +9,7 @@ export type DownloadKind = 'video' | 'audio';
 export interface ProgressEvent {
   percent: number;
   etaSeconds: number;
+  speedBps: number;
   line: string;
 }
 
@@ -57,7 +58,7 @@ const MockYtdlp: YtDlpPlugin = {
     await new Promise<void>((resolve) => {
       const t = setInterval(() => {
         percent += 25;
-        mockEmit({ percent, etaSeconds: 1, line: '' });
+        mockEmit({ percent, etaSeconds: 1, speedBps: 500_000, line: '' });
         if (percent >= 100) {
           clearInterval(t);
           resolve();
