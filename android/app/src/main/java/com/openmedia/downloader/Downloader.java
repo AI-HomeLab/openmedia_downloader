@@ -67,37 +67,42 @@ public final class Downloader {
 
         // 進度尺度：抓取佔 0-90，合併尾段 90-100。
         File videoFile = new File(outputDir, "dl-" + base + "." + picked.ext);
-        fetchOne(picked, videoFile, listener, cancelFlag, 0, companion == null ? 90 : 45);
-        verifySize(videoFile, picked.filesize);
+        ChunkedFetcher.Result vr = fetchOne(picked, videoFile, url, listener, cancelFlag, 0,
+                companion == null ? 90 : 45);
+        verifySize(videoFile, picked.filesize, vr.eofClean);
 
         if (companion == null) {
-            return videoFile;
+            return toCleanName(videoFile);
         }
         File audioFile = new File(outputDir, "dl-" + base + ".m4a");
-        fetchOne(companion, audioFile, listener, cancelFlag, 45, 90);
+        ChunkedFetcher.Result ar = fetchOne(companion, audioFile, url, listener, cancelFlag, 45, 90);
+        verifySize(audioFile, companion.filesize, ar.eofClean);
         if (listener != null) {
             listener.onProgress(95, 0, -1, "");
         }
         return MediaMerger.merge(videoFile, audioFile, outputDir, base);
     }
 
-    /** 落檔基本驗證：空檔必死；已知總長時差太多也死（NETWORK）。 */
-    static void verifySize(File file, long expected) throws DownloadException {
+    /**
+     * 落檔基本驗證：空檔必死；已知總長、抓取又非乾淨結束（非達標/非真 EOF）
+     * 且差太多也死（NETWORK）。eofClean 是 ChunkedFetcher 的結束方式回報。
+     */
+    static void verifySize(File file, long expected, boolean eofClean) throws DownloadException {
         long len = file.length();
         if (len <= 0) {
             throw new DownloadException(DownloadError.NETWORK, "下載為空檔");
         }
-        if (expected > 0 && len < expected) {
+        if (expected > 0 && len < expected && !eofClean) {
             throw new DownloadException(DownloadError.NETWORK,
                     "檔案不完整（" + len + "/" + expected + "）");
         }
     }
 
-    private static void fetchOne(VideoFormat format, File dest,
-                                 ProgressListener listener, AtomicBoolean cancelFlag,
-                                 int rangeStart, int rangeEnd) throws DownloadException {
+    private static ChunkedFetcher.Result fetchOne(VideoFormat format, File dest, String pageUrl,
+                                                  ProgressListener listener, AtomicBoolean cancelFlag,
+                                                  int rangeStart, int rangeEnd) throws DownloadException {
         long total = format.filesize;
-        ChunkedFetcher.fetch(format.url, dest, total,
+        return ChunkedFetcher.fetch(format.url, dest, total, pageUrl,
                 (downloaded, partTotal, speed) -> {
                     if (listener == null) {
                         return;
@@ -114,6 +119,26 @@ public final class Downloader {
                     }
                     listener.onProgress(percent, eta, speed, "");
                 }, cancelFlag);
+    }
+
+    /**
+     * 去 staging 前綴：中間檔叫 dl-&lt;base&gt;（防快取撞名），交出去的成品用乾淨標題。
+     * 合併產物本來就乾淨，不動。rename 失敗就回原檔（不讓改名拖死下載）。
+     */
+    static File toCleanName(File landed) {
+        String name = landed.getName();
+        if (!name.startsWith("dl-")) {
+            return landed;
+        }
+        File target = new File(landed.getParent(), name.substring(3));
+        try {
+            if (landed.renameTo(target)) {
+                return target;
+            }
+        } catch (Exception e) {
+            // fall through，回原檔
+        }
+        return landed;
     }
 
     /**

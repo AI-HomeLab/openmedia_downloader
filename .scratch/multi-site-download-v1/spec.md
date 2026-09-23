@@ -1,6 +1,6 @@
 # Spec — OpenMedia Downloader 第一版：三站影音下載（Android 10+）
 
-Status: ready-for-agent
+Status: completed（tickets 01-09 全 completed；archive 待 stage 6）
 
 ## Problem Statement
 

@@ -24,13 +24,13 @@ WIPE_FAMILIES=(
   "Big Buck Bunny 60fps"
 )
 # 斷言：family|副檔名，每組跑完恰好一份。
-# 檔名規則見 MediaStoreSaver：直存/轉檔用 dl- 前綴，合併成功用乾淨標題；
+# 檔名規則（Downloader.toCleanName）：成品一律乾淨標題，dl- 只留快取中間檔；
 # 改命名規則時同步改這裡。
 EXPECT=(
-  "dl-SoundHelix-Song-1|.mp3"
-  "dl-Big_Buck_Bunny_360_10s_2MB|.mp4"
+  "SoundHelix-Song-1|.mp3"
+  "Big_Buck_Bunny_360_10s_2MB|.mp4"
   "Big Buck Bunny 60fps|.mp4"
-  "dl-Big Buck Bunny 60fps|.mp3"
+  "Big Buck Bunny 60fps|.mp3"
 )
 MIN_SIZE=100000
 

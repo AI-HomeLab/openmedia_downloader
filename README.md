@@ -43,9 +43,17 @@ UI 跑在手機 WebView，下載能力經由**自訂 YtDlp Capacitor Plugin** �
 
 - 單一影片 / 播放清單連結解析（resolve）
 - 下載影片（解析度語意選擇，不 hardcode YouTube `format_id`）/ 下載音檔（mp3）
-- 進度顯示、取消（冪等）、重試、錯誤分級提示
-- 儲存到 MediaStore / app-specific 目錄（Scoped Storage），playlist/zip 要有數量與大小上限提示
+- 播放清單整批：先掃描→選 mp4/mp3＋預設 1080p（可逐項覆寫）→逐項下載，上限 50 項
+- 進度顯示、取消（冪等，整批停在當項並交代 N/M）、重試（單項走單下路徑）、錯誤分級提示
+- 儲存到 MediaStore / app-specific 目錄（Scoped Storage），檔名為乾淨標題
 - 詳細行為以 `.scratch/<feature>/spec.md` 為準，notebook 只做歷史對照
+
+### 支援範圍聲明（第一版驗收結論）
+- 站點：YouTube、X（單檔 progressive 為主）、Bilibili（DASH 分離式＋合併）三站驗收過；
+  其他站 best-effort（能解就用）。需登入/會員牆內容回「需登入、目前不支援」，不做登入。
+- 畫質：整批預設 1080p（或該項最高可用≤1080p）＋最佳音質；B 站免登入列到 1080p。
+- 裝置：minSdk 29（Android 10+），64-bit only；驗收過 API 29/33/35 映像。
+  已知限制：通知列進度約 3 秒早退（下載本身不受影響）、背景長批次有被系統回收風險。
 
 ## 環境需求
 
@@ -216,7 +224,6 @@ pnpm e2e                    # 跑 e2e/*.yaml 全流
   認 accessibility 文字——Capacitor WebView 內容在 Android 上透得出來，已驗證。
 - `pnpm e2e` 跑的是 `scripts/e2e.sh`：先清場（刪測試檔家族）、跑全流、
   再斷言 MediaStore **恰好一份＋>100KB**（多一份＝重複下單，直接 fail）。
-  檔名規則：直存/轉檔帶 `dl-` 前綴、合併成功用乾淨標題（見 MediaStoreSaver）。
 - `inputText` 只吃 ASCII（Maestro 已知限制）；URL 都是 ASCII 沒差。
 - `tapOn`/`assertVisible` 的文字其實走 regex 全比對：**pattern 含中文必 miss，改用精確全文**
   （如 `"360p mp4・17.4 MB（無聲，需合併）"`）；純 ASCII regex（`"完成.*"`）可用。

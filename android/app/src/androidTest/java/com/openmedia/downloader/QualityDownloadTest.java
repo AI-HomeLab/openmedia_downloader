@@ -81,8 +81,8 @@ public class QualityDownloadTest {
         outDir.mkdirs();
         File partV = new File(outDir, "part-v.mp4");
         File partA = new File(outDir, "part-a.mp4");
-        ChunkedFetcher.fetch(url, partV, -1, null, null);
-        ChunkedFetcher.fetch(url, partA, -1, null, null);
+        ChunkedFetcher.fetch(url, partV, -1, url, null, null);
+        ChunkedFetcher.fetch(url, partA, -1, url, null, null);
         assertTrue(partV.length() > 0 && partA.length() > 0);
         File merged = MediaMerger.merge(partV, partA, outDir, "mech");
         assertTrue(merged.getName().endsWith(".mp4") && merged.length() > 0);

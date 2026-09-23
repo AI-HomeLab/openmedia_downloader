@@ -62,6 +62,20 @@ public class ResolveResultTest {
     }
 
     @Test
+    public void sameHeightKeepsBothContainers() throws Exception {
+        // 08：同高不同容器都要保留（去重鍵＝高度＋容器），UI 清單與 resolve 一致。
+        ResolveResult r = ResolveResult.parse(fixture("resolve-sample.json"));
+        java.util.Set<String> exts360 = new java.util.HashSet<>();
+        for (VideoFormat f : r.videoOptions()) {
+            if (f.height == 360) {
+                exts360.add(f.ext);
+            }
+        }
+        assertTrue(exts360.contains("mp4"));
+        assertTrue(exts360.contains("webm"));
+    }
+
+    @Test
     public void genericSingleFileHasNoDimensionsButIsPlayable() throws Exception {
         // 直連單檔（generic extractor）：無 width/height、vcodec null，但可播且假設有聲。
         String json = "{\"id\":\"x\",\"title\":\"t\","

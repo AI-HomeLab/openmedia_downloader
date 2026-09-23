@@ -31,6 +31,18 @@ function fmtSpeed(bps: number): string {
   return kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB/s` : `${kb.toFixed(0)} KB/s`;
 }
 
+/** 需登入/會員牆的中文案（ticket 07）：原生報 EXTRACT＋英文訊息，UI 在此翻成中文。 */
+function errText(uiError: string): string {
+  if (/登入|登录|login|會員|会员|付費|付费/i.test(uiError)) {
+    return `需登入、目前不支援（${uiError}）`;
+  }
+  // EXTRACT 多半是站方改版或內容下架：給使用者下一步（ticket 08）。
+  if (/^EXTRACT/i.test(uiError)) {
+    return `${uiError}（網站可能改版或影片已下架，可稍後重試）`;
+  }
+  return uiError;
+}
+
 export default function Home() {
   const [url, setUrl] = useState('');
   const [kind, setKind] = useState<DownloadKind>('video');
@@ -408,7 +420,7 @@ export default function Home() {
           </p>
         </>
       )}
-      {ui.state === 'error' && <p className="error">失敗：{ui.error}</p>}
+      {ui.state === 'error' && <p className="error">失敗：{errText(ui.error)}</p>}
       {ui.state === 'done' && (
         <>
           <p>{merged ? '完成' : kind === 'audio' ? '完成（未轉檔）' : '完成（未合併）'}：{ui.fileName}{!merged && doneCode ? `（${doneCode}）` : ''}</p>

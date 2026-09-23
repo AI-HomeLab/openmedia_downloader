@@ -28,6 +28,16 @@ public class ErrorMapperTest {
         assertEquals(DownloadError.EXTRACT,
                 ErrorMapper.fromMessage(
                         "DownloadError: ERROR: [youtube] xxx: This video is unavailable"));
+        // B 站中文案：需登入/大會員/付費牆一律 EXTRACT（07 逐站驗收）。
+        assertEquals(DownloadError.EXTRACT,
+                ErrorMapper.fromMessage("ERROR: [BiliBili] xxx: 需要登录后观看"));
+        assertEquals(DownloadError.EXTRACT,
+                ErrorMapper.fromMessage("ERROR: [BiliBili] xxx: 该视频需要大会员观看"));
+        assertEquals(DownloadError.EXTRACT,
+                ErrorMapper.fromMessage("ERROR: [Twitter] 1: Login required"));
+        assertEquals(DownloadError.EXTRACT,
+                ErrorMapper.fromMessage(
+                        "ERROR: [twitter] 1: No video could be found in this tweet"));
     }
 
     @Test

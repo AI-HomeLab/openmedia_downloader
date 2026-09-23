@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
@@ -43,6 +44,20 @@ public class DownloadService extends Service {
 
     private static final String CHANNEL_ID = "download";
     private static final int NOTIFICATION_ID = 1;
+
+    /**
+     * API 29+ 前景宣告：三參數版（帶 dataSync type）。manifest 已宣告同 type＋權限；
+     * 之前兩參數版在 API 35 上約 3 秒被系統收回（Stop FGS timeout，下載靠
+     * worker 續命但通知消失；見 ticket 08）。
+     */
+    private void startForegroundTyped(Notification notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        } else {
+            startForeground(NOTIFICATION_ID, notification);
+        }
+    }
 
     /** Plugin 側掛的監聽（主執行緒回呼由呼叫方保證）。 */
     public interface Listener {
@@ -161,7 +176,7 @@ public class DownloadService extends Service {
             String url = intent.getStringExtra(EXTRA_URL);
             String format = intent.getStringExtra(EXTRA_FORMAT);
             String kind = intent.getStringExtra(EXTRA_KIND);
-            startForeground(NOTIFICATION_ID, buildNotification(0, "準備下載…"));
+            startForegroundTyped(buildNotification(0, "準備下載…"));
             current = executor.submit(() -> runDownload(url, format, kind));
         }
         if (ACTION_BATCH.equals(intent.getAction())) {
@@ -169,7 +184,7 @@ public class DownloadService extends Service {
             String kind = intent.getStringExtra(EXTRA_KIND);
             int maxHeight = intent.getIntExtra(EXTRA_MAX_HEIGHT, 1080);
             String overrides = intent.getStringExtra(EXTRA_OVERRIDES);
-            startForeground(NOTIFICATION_ID, buildNotification(0, "準備整批下載…"));
+            startForegroundTyped(buildNotification(0, "準備整批下載…"));
             current = executor.submit(() -> runBatch(url, kind, maxHeight, overrides));
         }
         return START_NOT_STICKY;
