@@ -3,22 +3,13 @@
 import { useEffect, useReducer, useState } from 'react';
 import {
   YtDlp,
-  BATCH_HEIGHTS,
   type BatchResult,
   type DownloadKind,
   type PlaylistResult,
   type QualityOption,
 } from '../src/lib/ytdlp';
 import { initialUiState, reducer } from '../src/lib/downloadState';
-
-function fmtDur(sec: number): string {
-  if (sec < 0) return '長度未知';
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.floor(sec % 60);
-  const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
-  return `${h > 0 ? h + ':' : ''}${mm}:${String(s).padStart(2, '0')}`;
-}
+import { BatchConfig, BatchDoneView, BatchProgressView } from './batch-panel';
 
 function fmtSize(bytes: number): string {
   if (bytes <= 0) return '大小未知';
@@ -293,112 +284,27 @@ export default function Home() {
         </>
       )}
       {playlist !== null && batchProg === null && batchDone === null && (
-        <>
-          <p>
-            {playlist.title}（共 {playlist.items.length} 項
-            {playlist.totalDurationSec > 0 ? `・${fmtDur(playlist.totalDurationSec)}` : ''}）
-          </p>
-          <div className="row">
-            <button
-              onClick={() => setBatchKind('video')}
-              disabled={busy}
-              aria-pressed={batchKind === 'video'}
-            >
-              mp4 影片
-            </button>
-            <button
-              onClick={() => setBatchKind('audio')}
-              disabled={busy}
-              aria-pressed={batchKind === 'audio'}
-            >
-              mp3 音檔
-            </button>
-            {batchKind === 'video' && (
-              <label>
-                預設畫質
-                <select
-                  value={batchMax}
-                  disabled={busy}
-                  onChange={(e) => setBatchMax(Number(e.target.value))}
-                >
-                  {BATCH_HEIGHTS.map((h) => (
-                    <option key={h} value={h}>
-                      {h}p（或更低）
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-          </div>
-          {playlist.items.map((item) => (
-            <div key={item.videoId} style={{ display: 'flex', gap: 8, minHeight: 44 }}>
-              <span style={{ flex: 1 }}>
-                {item.title}・{fmtDur(item.durationSec)}
-              </span>
-              {batchKind === 'video' && (
-                <select
-                  aria-label={`${item.title}畫質`}
-                  value={overrides[item.videoId] ?? -1}
-                  disabled={busy}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setOverrides((o) => {
-                      const next = { ...o };
-                      if (v < 0) delete next[item.videoId];
-                      else next[item.videoId] = v;
-                      return next;
-                    });
-                  }}
-                >
-                  <option value={-1}>預設</option>
-                  {BATCH_HEIGHTS.map((h) => (
-                    <option key={h} value={h}>
-                      {h}p
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          ))}
-          <div className="row cta">
-            <button onClick={startBatch} disabled={busy}>下載整批</button>
-            <button onClick={() => { exitBatch(); resetAll(); }}>重選</button>
-          </div>
-        </>
+        <BatchConfig
+          playlist={playlist}
+          batchKind={batchKind}
+          setBatchKind={setBatchKind}
+          batchMax={batchMax}
+          setBatchMax={setBatchMax}
+          overrides={overrides}
+          setOverrides={setOverrides}
+          busy={busy}
+          onStartBatch={startBatch}
+          onExitAndReset={() => { exitBatch(); resetAll(); }}
+        />
       )}
-      {batchProg !== null && (
-        <>
-          <div className="progress">
-            <div style={{ width: `${Math.max(0, batchProg.percent)}%` }} />
-          </div>
-          <p>
-            第 {batchProg.index + 1}/{batchProg.total} 項・{batchProg.itemTitle}
-            {batchProg.percent >= 0 ? `・${batchProg.percent.toFixed(0)}%` : ''}
-          </p>
-        </>
-      )}
+      {batchProg !== null && <BatchProgressView prog={batchProg} />}
       {batchDone !== null && playlist !== null && (
-        <>
-          <p>
-            整批完成 {batchDone.succeeded}/{batchDone.total} 項
-          </p>
-          {batchDone.failed.map((f) => {
-            const itemUrl = playlist.items[f.index]?.url ?? '';
-            return (
-              <div key={f.index} style={{ display: 'flex', gap: 8, minHeight: 44 }}>
-                <span style={{ flex: 1 }}>
-                  {f.title}：失敗（{f.code}）
-                </span>
-                {itemUrl !== '' && (
-                  <button onClick={() => retryItem(itemUrl)}>重試此項</button>
-                )}
-              </div>
-            );
-          })}
-          <div className="row">
-            <button onClick={() => { exitBatch(); resetAll(); }}>清除</button>
-          </div>
-        </>
+        <BatchDoneView
+          batchDone={batchDone}
+          playlist={playlist}
+          onRetryItem={retryItem}
+          onClear={() => { exitBatch(); resetAll(); }}
+        />
       )}
       <div className="row">
         {busy && <button onClick={cancel}>取消</button>}

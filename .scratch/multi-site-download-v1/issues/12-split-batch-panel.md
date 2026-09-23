@@ -6,8 +6,8 @@
 
 **Blocked by:** 無.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] 新增 `apps/web/app/batch-panel.tsx`（或 `src/components/`，按 repo 現況只選一處），
-  批次三段搬過去；`page.tsx` 透過 props 串 `startBatch/retryItem/exitBatch`
-- [ ] `pnpm build` 綠＋Maestro `download-playlist.yaml` 綠（行為無變）
+- [x] 新增 `apps/web/app/batch-panel.tsx`（`BatchConfig`／`BatchProgressView`／
+  `BatchDoneView`＋`fmtDur`），`page.tsx` 只留模式分流＋state（純搬移，無行為/視覺變更）
+- [x] `pnpm build` 綠＋Maestro `download-playlist.yaml` 綠（行為無變）
