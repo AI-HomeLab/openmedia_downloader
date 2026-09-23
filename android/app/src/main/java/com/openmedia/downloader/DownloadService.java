@@ -39,7 +39,7 @@ public class DownloadService extends Service {
     public interface Listener {
         void onProgress(float percent, long etaSeconds);
 
-        void onDone(Uri fileUri, String fileName);
+        void onDone(Uri fileUri, String fileName, boolean merged);
 
         void onError(DownloadError code, String message);
     }
@@ -113,8 +113,8 @@ public class DownloadService extends Service {
     }
 
     private void runDownload(String url, String format) {
+        File staging = new File(getCacheDir(), "dl-" + System.currentTimeMillis());
         try {
-            File staging = new File(getCacheDir(), "dl-" + System.currentTimeMillis());
             File landed = Downloader.download(this, url, staging, format,
                     (percent, eta, line) -> {
                         if (cancelFlag.get()) {
@@ -138,11 +138,30 @@ public class DownloadService extends Service {
             stopSelf();
             Listener l = listener;
             if (l != null) {
-                l.onDone(uri, MediaStoreSaver.displayName(this, uri));
+                l.onDone(uri, MediaStoreSaver.displayName(this, uri), true);
             }
         } catch (DownloadCancelled e) {
             finishCancelled();
         } catch (DownloadException e) {
+            // 合併失敗但有原檔：存原檔並以「未合併」完成（ticket 03 語意）。
+            if (e.getCode() == DownloadError.POSTPROCESS && e.getPartialFile() != null) {
+                try {
+                    Uri uri = MediaStoreSaver.save(this, e.getPartialFile());
+                    deleteQuietly(staging);
+                    running.set(false);
+                    stopForeground(true);
+                    stopSelf();
+                    Listener l = listener;
+                    if (l != null) {
+                        l.onDone(uri, MediaStoreSaver.displayName(this, uri), false);
+                    }
+                    return;
+                } catch (DownloadException ignored) {
+                    // 存都存不進去才往下走一般錯誤路；記一筆免得無聲。
+                    android.util.Log.w("DownloadService",
+                            "partial save failed: " + ignored.getMessage());
+                }
+            }
             running.set(false);
             stopForeground(true);
             stopSelf();

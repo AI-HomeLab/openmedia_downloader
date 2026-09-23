@@ -5,11 +5,16 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 自訂 YtDlp Plugin 的 Android 原生側。TS 介面（apps/web/src/lib/ytdlp.ts）是
@@ -19,8 +24,12 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "YtDlp")
 public class YtDlpPlugin extends Plugin {
     private final Handler main = new Handler(Looper.getMainLooper());
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private String currentCallbackId;
-    private String currentState = "idle";
+    private volatile String currentState = "idle";
+    /** 上次 resolve 的完整結果；download(formatIndex) 吃它的 index，URL 對不上就拒收。 */
+    private volatile ResolveResult lastResolve;
+    private volatile String lastResolveUrl;
 
     @Override
     public void load() {
@@ -35,12 +44,13 @@ public class YtDlpPlugin extends Plugin {
             }
 
             @Override
-            public void onDone(Uri fileUri, String fileName) {
+            public void onDone(Uri fileUri, String fileName, boolean merged) {
                 currentState = "done";
                 finishWith((call) -> {
                     JSObject data = new JSObject();
                     data.put("fileUri", fileUri.toString());
                     data.put("fileName", fileName);
+                    data.put("merged", merged);
                     call.resolve(data);
                 });
             }
@@ -65,9 +75,18 @@ public class YtDlpPlugin extends Plugin {
             call.reject("INVALID_URL", DownloadError.UNKNOWN.name());
             return;
         }
-        // 02 只有 video/bestaudio 兩檔；畫質清單是 03 的事。
+        // 02 只有 video/bestaudio 兩檔；03 起吃 formatIndex（resolve 清單的 index）。
         String kind = call.getString("kind", "video");
         String format = "audio".equals(kind) ? "bestaudio" : call.getString("format", "best");
+        int formatIndex = call.getInt("formatIndex", -1);
+        if (formatIndex >= 0) {
+            String picked = pickFormat(url, formatIndex);
+            if (picked == null) {
+                call.reject("請重新解析後再選畫質", DownloadError.UNKNOWN.name());
+                return;
+            }
+            format = picked;
+        }
         if (!DownloadService.startDownload(getContext(), url, format)) {
             call.reject("BUSY", DownloadError.UNKNOWN.name());
             return;
@@ -91,10 +110,63 @@ public class YtDlpPlugin extends Plugin {
         call.resolve(data);
     }
 
-    /** 結構化 resolve 移至 03；現在呼叫一律明確拒絕。 */
+    /** 結構化 resolve：回傳實際可用畫質清單（index/label/size），結果快取給 download 用。 */
     @PluginMethod
     public void resolve(PluginCall call) {
-        call.reject("resolve 移至 03 實作", DownloadError.UNKNOWN.name());
+        String url = call.getString("url");
+        if (url == null || !(url.startsWith("http://") || url.startsWith("https://"))) {
+            call.reject("INVALID_URL", DownloadError.UNKNOWN.name());
+            return;
+        }
+        currentState = "resolving";
+        final String callbackId = call.getCallbackId();
+        getBridge().saveCall(call);
+        executor.submit(() -> {
+            try {
+                ResolveResult result = ResolveEngine.resolve(getContext(), url);
+                lastResolve = result;
+                lastResolveUrl = url;
+                List<VideoFormat> options = result.videoOptions();
+                JSArray arr = new JSArray();
+                for (int i = 0; i < options.size(); i++) {
+                    VideoFormat f = options.get(i);
+                    JSObject o = new JSObject();
+                    o.put("index", i);
+                    o.put("label", f.displayLabel());
+                    o.put("sizeBytes", f.filesize);
+                    o.put("hasAudio", f.hasAudio());
+                    arr.put(o);
+                }
+                JSObject data = new JSObject();
+                data.put("title", result.title);
+                data.put("durationSec", result.durationSec);
+                data.put("options", arr);
+                finishSaved(callbackId, (saved) -> saved.resolve(data));
+            } catch (ResolveException e) {
+                currentState = "error";
+                finishSaved(callbackId,
+                        (saved) -> saved.reject(e.getMessage(), e.getCode().name()));
+            } catch (Throwable t) {
+                // 絕不讓 saved call 懸空：任何非預期錯誤都收斂為 UNKNOWN。
+                android.util.Log.e("YtDlpPlugin", "resolve 意外失敗", t);
+                currentState = "error";
+                finishSaved(callbackId, (saved) -> saved.reject(
+                        "解析失敗", DownloadError.UNKNOWN.name()));
+            }
+        });
+    }
+
+    /** 從快取的 resolve 結果拿 formatId；URL 對不上或越界就拒收（防錯片）。 */
+    private String pickFormat(String url, int index) {
+        ResolveResult cached = lastResolve;
+        if (cached == null || !url.equals(lastResolveUrl)) {
+            return null;
+        }
+        List<VideoFormat> options = cached.videoOptions();
+        if (index < 0 || index >= options.size()) {
+            return null;
+        }
+        return options.get(index).formatId;
     }
 
     @PluginMethod
@@ -119,6 +191,10 @@ public class YtDlpPlugin extends Plugin {
     private void finishWith(Finisher finisher) {
         final String id = currentCallbackId;
         currentCallbackId = null;
+        finishSaved(id, finisher);
+    }
+
+    private void finishSaved(final String id, Finisher finisher) {
         main.post(() -> {
             if (id == null) {
                 return;

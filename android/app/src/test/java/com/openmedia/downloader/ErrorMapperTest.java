@@ -25,6 +25,15 @@ public class ErrorMapperTest {
                 ErrorMapper.fromMessage("ERROR: Video unavailable"));
         assertEquals(DownloadError.EXTRACT,
                 ErrorMapper.fromMessage("ERROR: Requested format not available"));
+        assertEquals(DownloadError.EXTRACT,
+                ErrorMapper.fromMessage(
+                        "DownloadError: ERROR: [youtube] xxx: This video is unavailable"));
+    }
+
+    @Test
+    public void ffmpegFailureMapsToPostprocess() {
+        assertEquals(DownloadError.POSTPROCESS,
+                ErrorMapper.fromMessage("ERROR: Postprocessing: ffmpeg not found"));
     }
 
     @Test

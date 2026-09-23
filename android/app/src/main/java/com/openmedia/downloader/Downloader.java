@@ -64,8 +64,10 @@ public final class Downloader {
             if (cancelled != null) {
                 throw cancelled;
             }
-            throw new DownloadException(
-                    ErrorMapper.fromMessage(e.getMessage()), "下載失敗", e);
+            DownloadError code = ErrorMapper.fromMessage(e.getMessage());
+            java.io.File partial = code == DownloadError.POSTPROCESS
+                    ? newestNewFile(outputDir, before) : null;
+            throw new DownloadException(code, "下載失敗", partial, e);
         }
         if (!response.isSuccess()) {
             throw new DownloadException(

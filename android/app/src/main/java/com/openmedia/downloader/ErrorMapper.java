@@ -25,9 +25,12 @@ public final class ErrorMapper {
                 "eacces", "read-only file system")) {
             return DownloadError.STORAGE;
         }
+        if (containsAny(m, "ffmpeg", "ffprobe", "merger", "postprocessing")) {
+            return DownloadError.POSTPROCESS;
+        }
         if (containsAny(m, "private video", "login required", "sign in to confirm",
                 "log in", "cookies", "age gate", "age-verification",
-                "video unavailable", "has been removed", "has been deleted",
+                "video unavailable", "video is unavailable", "not available", "has been removed", "has been deleted",
                 "not available in your country", "requested format not available",
                 "unsupported url", "no video formats found", "unable to extract",
                 "http error 403", "http error 429", "forbidden")) {

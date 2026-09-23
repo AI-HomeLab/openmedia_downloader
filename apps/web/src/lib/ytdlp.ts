@@ -2,7 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 /**
  * 自訂 YtDlp Plugin 的 TS 定義 — 全 repo source of truth（見 rules §5）。
- * resolve() 留給 03（結構化解析），現在呼叫一律被拒。
+ * format 用 opaque index：UI 只顯示 label，原樣傳回，不解讀 id。
  */
 export type DownloadKind = 'video' | 'audio';
 
@@ -12,15 +12,29 @@ export interface ProgressEvent {
   line: string;
 }
 
+export interface QualityOption {
+  index: number;
+  label: string;
+  sizeBytes: number;
+  hasAudio: boolean;
+}
+
+export interface ResolveResult {
+  title: string;
+  durationSec: number;
+  options: QualityOption[];
+}
+
 export interface YtDlpPlugin {
   download(options: {
     url: string;
     kind: DownloadKind;
     format?: string;
-  }): Promise<{ fileUri: string; fileName: string }>;
+    formatIndex?: number;
+  }): Promise<{ fileUri: string; fileName: string; merged: boolean }>;
   cancel(): Promise<void>;
   getStatus(): Promise<{ state: string }>;
-  resolve(options: { url: string }): Promise<never>;
+  resolve(options: { url: string }): Promise<ResolveResult>;
   openFile(options: { uri: string }): Promise<void>;
   addListener(
     eventName: 'progress',
@@ -50,14 +64,21 @@ const MockYtdlp: YtDlpPlugin = {
         }
       }, 50);
     });
-    return { fileUri: 'mock://downloads/video.mp4', fileName: 'video.mp4' };
+    return { fileUri: 'mock://downloads/video.mp4', fileName: 'video.mp4', merged: true };
   },
   async cancel() {},
   async getStatus() {
     return { state: 'idle' };
   },
   async resolve() {
-    throw new Error('resolve 移至 03 實作');
+    return {
+      title: 'Mock 影片',
+      durationSec: 60,
+      options: [
+        { index: 0, label: '1080p mp4', sizeBytes: 10_000_000, hasAudio: false },
+        { index: 1, label: '720p mp4', sizeBytes: 5_000_000, hasAudio: true },
+      ],
+    };
   },
   async openFile() {},
   addListener(_event, cb) {
