@@ -19,7 +19,9 @@ on:
 
 jobs:
   matrix:
-    runs-on: ubuntu-latest
+    # 跑在組織自架 runner（NVIDIA AGX Thor，arm64）：家用出口 IP，
+    # YouTube／X／B 站不擋；模擬器用 arm64 映像原生跑，不用轉譯。
+    runs-on: [self-hosted, lab-agx-thor]
     # 模擬器若真卡死，不要燒 6 小時預設上限。
     timeout-minutes: 90
     strategy:
@@ -79,7 +81,7 @@ jobs:
         with:
           api-level: ${{ matrix.api }}
           target: google_apis
-          arch: x86_64
+          arch: arm64-v8a
           disable-animations: true
           # 舊 API（29）在新 emulator 下開機易卡：關快照/音效/動畫，拉記憶體。
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -memory 4096
