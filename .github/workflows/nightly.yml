@@ -1,0 +1,62 @@
+# Nightly 全矩陣（ticket 03）：connected（API 29／33／35）＋Maestro e2e。
+# 定時＋手動觸發；站外抖動只告警，永不擋 PR（schedule 本來就不擋）。
+name: nightly
+
+on:
+  schedule:
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 33, 35]
+    env:
+      GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-home
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Enable corepack (pnpm 版號由 packageManager pin)
+        run: corepack enable
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK packages
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "platforms;android-${{ matrix.api }}"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Web static export
+        run: pnpm build
+
+      - name: Sync web into android
+        run: pnpm cap:sync
+
+      - name: Connected tests on API ${{ matrix.api }} + e2e
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          script: |
+            bash scripts/gradle.sh connectedDebugAndroidTest -x :capacitor-cordova-android-plugins:connectedDebugAndroidTest
+            bash scripts/gradle.sh assembleDebug
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            curl -fsSL "https://get.maestro.mobile.dev" | bash
+            export PATH="$HOME/.maestro/bin:$PATH"
+            bash scripts/e2e.sh
