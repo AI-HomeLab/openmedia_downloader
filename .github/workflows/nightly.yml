@@ -59,7 +59,11 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
+          target: google_apis
           arch: x86_64
+          disable-animations: true
+          # 舊 API（29）在新 emulator 下開機易卡：關快照/音效/動畫，拉記憶體。
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -memory 4096
           script: |
             bash scripts/gradle.sh connectedDebugAndroidTest -x :capacitor-cordova-android-plugins:connectedDebugAndroidTest
             bash scripts/gradle.sh assembleDebug
