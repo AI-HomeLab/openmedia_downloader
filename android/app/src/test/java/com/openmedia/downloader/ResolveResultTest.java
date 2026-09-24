@@ -24,6 +24,8 @@ public class ResolveResultTest {
         assertTrue(r.title.contains("Big Buck Bunny"));
         assertEquals(53, r.formats.size());
         assertTrue(r.hasPlayableVideo());
+        // 正規頁 URL：短連結展開後的 Referer 來源（b23.tv 案）。
+        assertEquals("https://www.youtube.com/watch?v=aqz-KE-bpKQ", r.webpageUrl);
     }
 
     @Test

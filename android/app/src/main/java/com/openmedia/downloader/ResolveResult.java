@@ -17,14 +17,22 @@ public class ResolveResult {
     public final String uploader;
     public final long durationSec;
     public final List<VideoFormat> formats;
+    /** 解析後的正規頁面 URL（短連結展開後；B 站 CDN 認它當 Referer）。 */
+    public final String webpageUrl;
 
     public ResolveResult(String videoId, String title, String uploader,
                          long durationSec, List<VideoFormat> formats) {
+        this(videoId, title, uploader, durationSec, formats, "");
+    }
+
+    public ResolveResult(String videoId, String title, String uploader,
+                         long durationSec, List<VideoFormat> formats, String webpageUrl) {
         this.videoId = videoId;
         this.title = title;
         this.uploader = uploader;
         this.durationSec = durationSec;
         this.formats = Collections.unmodifiableList(new ArrayList<>(formats));
+        this.webpageUrl = webpageUrl == null ? "" : webpageUrl;
     }
 
     /** 解析 yt-dlp `--dump-single-json` 的 stdout。失敗拋 UNKNOWN。 */
@@ -46,7 +54,8 @@ public class ResolveResult {
                     o.optString("title", ""),
                     o.optString("uploader", ""),
                     o.optLong("duration", -1),
-                    formats);
+                    formats,
+                    o.optString("webpage_url", ""));
         } catch (JSONException e) {
             throw new ResolveException(DownloadError.UNKNOWN, "resolve 回傳無法解析", e);
         }

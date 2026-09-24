@@ -55,6 +55,9 @@ public final class Downloader {
             throw new DownloadException(DownloadError.STORAGE, "建輸出目錄失敗");
         }
         String base = sanitize(resolved.title.isEmpty() ? resolved.videoId : resolved.title);
+        // Referer 用解析後的正規頁（短連結 b23.tv 展開後的 BV 頁）；
+        // 拿用戶輸入原文當 Referer 會被 B 站 CDN 403。
+        String refPage = resolved.webpageUrl.isEmpty() ? url : resolved.webpageUrl;
 
         VideoFormat companion = null;
         if (!audioMode && !picked.hasAudio()) {
@@ -67,7 +70,7 @@ public final class Downloader {
 
         // 進度尺度：抓取佔 0-90，合併尾段 90-100。
         File videoFile = new File(outputDir, "dl-" + base + "." + picked.ext);
-        ChunkedFetcher.Result vr = fetchOne(picked, videoFile, url, listener, cancelFlag, 0,
+        ChunkedFetcher.Result vr = fetchOne(picked, videoFile, refPage, listener, cancelFlag, 0,
                 companion == null ? 90 : 45);
         verifySize(videoFile, picked.filesize, vr.eofClean);
 
@@ -75,7 +78,7 @@ public final class Downloader {
             return toCleanName(videoFile);
         }
         File audioFile = new File(outputDir, "dl-" + base + ".m4a");
-        ChunkedFetcher.Result ar = fetchOne(companion, audioFile, url, listener, cancelFlag, 45, 90);
+        ChunkedFetcher.Result ar = fetchOne(companion, audioFile, refPage, listener, cancelFlag, 45, 90);
         verifySize(audioFile, companion.filesize, ar.eofClean);
         if (listener != null) {
             listener.onProgress(95, 0, -1, "");
