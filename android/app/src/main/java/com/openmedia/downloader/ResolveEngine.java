@@ -47,7 +47,8 @@ public final class ResolveEngine {
             PyObject opts = py.getBuiltins().callAttr("dict");
             opts.callAttr("__setitem__", "quiet", true);
             opts.callAttr("__setitem__", "noplaylist", true);
-            opts.callAttr("__setitem__", "socket_timeout", 15);
+            // 行動網路＋CI 模擬器常超過 15 秒，30 秒才算超時（ticket 03 CI 實測）。
+            opts.callAttr("__setitem__", "socket_timeout", 30);
             PyObject ydl = ytDlp.callAttr("YoutubeDL", opts);
             PyObject info = ydl.callAttr("extract_info", url, false);
             if (info == null) {
@@ -65,6 +66,8 @@ public final class ResolveEngine {
         } catch (ResolveException e) {
             throw e;
         } catch (Exception e) {
+            // 原因記 logcat（CI 上抓 resolve 失敗根因用）。
+            android.util.Log.w("ResolveEngine", "resolve 失敗: " + e);
             throw new ResolveException(
                     ErrorMapper.fromMessage(e.getMessage()), "解析失敗", e);
         }
@@ -91,7 +94,7 @@ public final class ResolveEngine {
             opts.callAttr("__setitem__", "quiet", true);
             opts.callAttr("__setitem__", "noplaylist", false);
             opts.callAttr("__setitem__", "extract_flat", true);
-            opts.callAttr("__setitem__", "socket_timeout", 15);
+            opts.callAttr("__setitem__", "socket_timeout", 30);
             PyObject ydl = ytDlp.callAttr("YoutubeDL", opts);
             PyObject info = ydl.callAttr("extract_info", url, false);
             if (info == null) {
