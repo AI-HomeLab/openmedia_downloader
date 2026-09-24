@@ -20,7 +20,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [29, 33, 35]
+        # 35 跑全套；29/33 只跑一條冒煙（resolve→下載→合併），證明 API 相容即可。
+        # 全量 connected 在三個 API 上又慢又容易一起卡住，之前 0/17 卡死就是這樣。
+        include:
+          - api: 29
+            connected_filter: -Pandroid.testInstrumentationRunnerArguments.class=com.openmedia.downloader.YoutubeSplitMergeTest
+            run_e2e: false
+          - api: 33
+            connected_filter: -Pandroid.testInstrumentationRunnerArguments.class=com.openmedia.downloader.YoutubeSplitMergeTest
+            run_e2e: false
+          - api: 35
+            connected_filter: ''
+            run_e2e: true
     env:
       GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-home
     steps:
@@ -55,15 +66,29 @@ jobs:
       - name: Sync web into android
         run: pnpm cap:sync
 
+      # KVM 不存在時模擬器會掉進純軟體模擬（慢到 0/17 卡死）：先驗，有問題立刻紅，
+      # 不要燒 90 分鐘才發現。
+      - name: Check KVM acceleration
+        run: |
+          egrep -c '^(flags|Features).*(vmx|svm)' /proc/cpuinfo || true
+          ls -l /dev/kvm
+          test -r /dev/kvm -a -w /dev/kvm
+
       - name: Connected tests on API ${{ matrix.api }} + e2e
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
+          target: google_apis
           arch: x86_64
+          disable-animations: true
+          # 舊 API（29）在新 emulator 下開機易卡：關快照/音效/動畫，拉記憶體。
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -memory 4096
           script: |
-            bash scripts/gradle.sh connectedDebugAndroidTest -x :capacitor-cordova-android-plugins:connectedDebugAndroidTest
-            bash scripts/gradle.sh assembleDebug
-            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            curl -fsSL "https://get.maestro.mobile.dev" | bash
-            export PATH="$HOME/.maestro/bin:$PATH"
-            bash scripts/e2e.sh
+            bash scripts/gradle.sh connectedDebugAndroidTest ${{ matrix.connected_filter }} -x :capacitor-cordova-android-plugins:connectedDebugAndroidTest
+            if [ "${{ matrix.run_e2e }}" = "true" ]; then
+              bash scripts/gradle.sh assembleDebug
+              adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+              curl -fsSL "https://get.maestro.mobile.dev" | bash
+              export PATH="$HOME/.maestro/bin:$PATH"
+              bash scripts/e2e.sh
+            fi
