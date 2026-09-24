@@ -37,7 +37,8 @@
 │ yt-dlp-android（Maven Central）     │  ← 現成，只 pin 版＋呼叫
 ├─────────────────────────────────────┤
 │ Chaquopy / CPython 3.13＋yt-dlp    │  ← library；AAR 內建版太舊，
-│                                     │    用自帶 wheel 疊加蓋掉（見 ticket 09）
+│                                     │    用自帶 wheel 疊加蓋掉
+│                                     │    （見 `.scratch/archive/multi-site-download-v1/issues/09-ytdlp-overlay-upgrade.md`）
 ├─────────────────────────────────────┤
 │ FFmpeg（ffmpeg-kit audio，可開關）  │  ← 合併／轉檔用
 └─────────────────────────────────────┘
@@ -82,8 +83,11 @@
 實證基礎：單測 37＋connected 常駐＋`pnpm e2e` 6 流，API 29/33/35 映像皆跑過。
 **但全部都在模擬器（x86_64）驗的，沒上過 arm64 真機**，這是目前最大盲點。
 
-- **YouTube 靠 overlay 續命**：AAR 內建 yt-dlp 已跟不上，YouTube 服務端再改版就要 bump（流程見 ticket 09）。
-- **B 站是軍備競賽**：CDN 規則一換就可能再斷（定位方法：host curl 對照組，見 ticket 07）。
+- **YouTube 靠 overlay 續命**：AAR 內建 yt-dlp 已跟不上，YouTube 服務端再改版就要 bump
+  （流程見 `.scratch/archive/multi-site-download-v1/issues/09-ytdlp-overlay-upgrade.md`）。
+- **B 站是軍備競賽**：CDN 規則一換就可能再斷
+  （定位方法：host curl 對照組，
+  見 `.scratch/archive/multi-site-download-v1/issues/07-x-bilibili-acceptance.md`）。
 - **通知列進度約 3 秒早退**：下載本身靠 worker 續命不受影響；背景長批次有被回收風險。
 - **e2e 有外部脆弱點**：SoundHelix 限速、YouTube 格式浮動、測試清單刪片——這類紅是驗收報警，不是 bug。
 - **功能邊界**：不做登入／DRM／私享片；無分享、無內建播放器、無斷點續傳；

@@ -49,7 +49,8 @@ Android APK（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin → yt-dl
 - 自研：`apps/web/`（UI＋`src/lib/ytdlp.ts` 介面）、`android/app/.../downloader/`
   （Plugin＋下載管線＋Service）。只 pin 不改：Capacitor、yt-dlp-android
   （`ffmpegkit-maintained`，免費版僅 arm64-v8a + x86_64）、
-  Chaquopy/CPython/yt-dlp 本體（AAR 內建版太舊，用 `assets/ytdlp/` wheel 疊加蓋掉，見 ticket 09）。
+  Chaquopy/CPython/yt-dlp 本體（AAR 內建版太舊，用 `assets/ytdlp/` wheel 疊加蓋掉，
+  見 `.scratch/archive/multi-site-download-v1/issues/09-ytdlp-overlay-upgrade.md`）。
   FFmpeg 可開關，缺席要有 fallback。
 - `download_yt_video_or_audio.ipynb` 是封存參考；`format_id` 白名單已過期，改用解析度語意選 format。
 - 錯誤碼全 repo 一致：`NETWORK / EXTRACT / STORAGE / CANCELLED / POSTPROCESS / UNKNOWN`。
