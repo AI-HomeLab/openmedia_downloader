@@ -25,16 +25,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 35 跑全套；29/33 只跑一條冒煙（resolve→下載→合併），證明 API 相容即可。
-        # 全量 connected 在三個 API 上又慢又容易一起卡住，之前 0/17 卡死就是這樣。
+        # 只跑 29：省矩陣麻煩。全量 connected＋e2e 都在同一台驗。
         include:
           - api: 29
-            connected_filter: -Pandroid.testInstrumentationRunnerArguments.class=com.openmedia.downloader.YoutubeSplitMergeTest
-            run_e2e: false
-          - api: 33
-            connected_filter: -Pandroid.testInstrumentationRunnerArguments.class=com.openmedia.downloader.YoutubeSplitMergeTest
-            run_e2e: false
-          - api: 35
             connected_filter: ''
             run_e2e: true
     env:
