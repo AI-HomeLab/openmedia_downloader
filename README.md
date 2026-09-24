@@ -126,6 +126,16 @@ pnpm e2e
 - 坑（完整版見 AGENTS）：`tapOn` 是 regex 全比對，中文用精確全文；
   a11y 樹剪 fold 下節點，CTA 用 sticky 保可點，不要在 flow 裡 scroll 再點。
 
+### 簽章發版（打 tag 即出包）
+
+- keystore（`.jks`）、密碼、key alias **絕不進 repo、不貼 log**，只活在 GitHub Secrets＋runner 暫存。
+- 擁有者一次性設定（GitHub repo → Settings → Secrets and variables → Actions）：
+  1. 本地生 keystore：`keytool -genkeypair -keystore release.jks -alias openmedia -keyalg RSA -keysize 2048 -validity 9125`
+  2. 填 4 個 Secrets：`ANDROID_KEYSTORE_BASE64`（`base64 -w0 release.jks` 全文）、
+     `KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`
+- 發版：`git tag v1.0.0 && git push origin v1.0.0` → signed AAB＋APK 出現在 Releases。
+  沒填 secrets 也能跑（產物為 unsigned，僅驗證鏈路）。
+
 ## 疑難排解
 
 | 症狀 | 先查 |
