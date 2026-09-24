@@ -5,6 +5,11 @@
 # - 手動 dispatch 隨時可跑。站外抖動只告警，永不擋 PR。
 name: nightly
 
+# 同時間只跑一份 nightly（手動＋push 撞車時，新的砍掉舊的，省分钟數）。
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
