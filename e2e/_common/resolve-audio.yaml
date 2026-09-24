@@ -2,7 +2,14 @@
 appId: com.openmedia.downloader
 ---
 - tapOn: 音檔
+# 同 resolve-video：API 29 要雙 tap 才聚焦。
+- tapOn: 貼上影片連結
 - tapOn: 貼上影片連結
 - inputText: "${URL}"
 - hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 10000
 - tapOn: 解析
+- tapOn:
+    text: 解析
+    optional: true

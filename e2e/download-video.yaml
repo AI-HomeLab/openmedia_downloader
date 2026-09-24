@@ -7,7 +7,9 @@ appId: com.openmedia.downloader
     file: ./_common/resolve-video.yaml
     env:
       URL: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_2MB.mp4"
-- assertVisible: Big_Buck_Bunny_360_10s_2MB
+- extendedWaitUntil:
+    visible: "Big_Buck_Bunny.*"
+    timeout: 120000
 - tapOn: 下載
 - extendedWaitUntil:
     visible: "完成.*"

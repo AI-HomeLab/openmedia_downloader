@@ -251,6 +251,9 @@ export default function Home() {
       </div>
       <input
         type="text"
+        inputMode="url"
+        autoCapitalize="off"
+        autoCorrect="off"
         placeholder="貼上影片連結"
         value={url}
         disabled={busy}
