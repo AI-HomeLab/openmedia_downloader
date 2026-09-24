@@ -14,6 +14,12 @@ have_et=0
 
 echo "== preflight: device & network =="
 adb wait-for-device
+# 同機若已有別台模擬器（本地調試）會搶 port／吃 RAM，直接報錯不硬跑。
+if [ "$(adb devices | grep -c emulator)" -gt 1 ]; then
+  echo "已有其他 emulator 在跑，先關掉再跑 CI（見 AGENTS 多開警告）"
+  adb devices
+  exit 1
+fi
 adb shell getprop sys.boot_completed
 adb shell getprop ro.build.version.sdk
 echo "--- date (TLS 靠它) ---"
