@@ -274,7 +274,6 @@ export default function Home() {
                 onChange={() => setPicked(o.index)}
               />
               {o.label}・{fmtSize(o.sizeBytes)}
-              {!o.hasAudio && '（無聲，需合併）'}
             </label>
           ))}
           <div className="row cta">

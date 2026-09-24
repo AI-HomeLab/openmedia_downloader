@@ -1,7 +1,9 @@
-# YouTube 分離抓取＋合併全環：解析 → 選 360p mp4 無聲（需合併）→ 下載 → 完成
+# YouTube 分離抓取＋合併全環：解析 → 選 480p mp4（分離式，自動合併）→ 下載 → 完成
 # 前提：YtDlpEngine wheel overlay（否則 YouTube 直連 403）
 # 註：Maestro 的 tapOn 其實走 regex 全比對，pattern 含中文會 miss，改用精確全文；
-# 另 SABR 每次回的格式略有不同，240p/144p 時有時無，360p mp4 三次都在，大小也穩。
+# 另 SABR 每次回的格式略有不同（這輪連 360p mp4 都沒回），480p mp4・26.9 MB
+# 每次都在且大小穩定；分離式必走合併（progressive 同組有更大檔才會被選走，
+# 合併與否以 connected test 的 audio 軌斷言為準）。
 appId: com.openmedia.downloader
 ---
 - runFlow:
@@ -13,7 +15,7 @@ appId: com.openmedia.downloader
 - extendedWaitUntil:
     visible: "Big Buck Bunny.*"
     timeout: 120000
-- tapOn: "360p mp4・17.4 MB（無聲，需合併）"
+- tapOn: "480p mp4・26.9 MB"
 # 不自己 scroll：Maestro tapOn 會自動滾到可點位置；顯式 scrollUntilVisible
 # 反而讓後續 tap 卡住（WebView a11y 樹滾動後不穩定）。
 - tapOn: 下載
