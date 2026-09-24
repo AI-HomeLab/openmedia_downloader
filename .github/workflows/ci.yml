@@ -28,10 +28,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
-
+      # runner 自帶 Android SDK（ANDROID_HOME 已設）；setup-android 會因內建
+      # 舊 'tools' 包名炸掉，直接用預裝的，只補要用的包。
       - name: Install SDK packages (compileSdk 36＋build-tools 35.0.0)
         run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
           yes | sdkmanager --licenses > /dev/null
           sdkmanager "platforms;android-36" "build-tools;35.0.0"
 
