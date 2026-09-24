@@ -66,11 +66,13 @@ jobs:
       - name: Sync web into android
         run: pnpm cap:sync
 
-      # KVM 不存在時模擬器會掉進純軟體模擬（慢到 0/17 卡死）：先驗，有問題立刻紅，
-      # 不要燒 90 分鐘才發現。
-      - name: Check KVM acceleration
+      # runner 有 KVM 硬體但 runner 使用者不在 kvm 群組（root:kvm 660）：
+      # 沒這條，模擬器掉進純軟體模擬，API 29 開不了機、33/35 卡在 0/17。
+      # （本地 .tools 遇過同樣問題，用 sg 繞；CI 上 sudo 免密碼，直接修 udev。）
+      - name: Enable KVM for runner user
         run: |
-          egrep -c '^(flags|Features).*(vmx|svm)' /proc/cpuinfo || true
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
           test -r /dev/kvm -a -w /dev/kvm
 
