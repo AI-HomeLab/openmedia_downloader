@@ -7,7 +7,9 @@ appId: com.openmedia.downloader
     file: ./_common/resolve-audio.yaml
     env:
       URL: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-- assertVisible: SoundHelix-Song-1
+- extendedWaitUntil:
+    visible: "SoundHelix.*"
+    timeout: 120000
 - tapOn: 下載
 - extendedWaitUntil:
     visible: "完成.*"

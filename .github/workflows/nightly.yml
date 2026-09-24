@@ -26,9 +26,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 只跑 29：省矩陣麻煩。全量 connected＋e2e 都在同一台驗。
+        # API 29 模擬器的系統 WebView 凍結在 Chrome 74（2019），React 19 的
+        # onClick 點不動（typing/label 正常；真機 WebView 會經 Play 更新，無此問題）。
+        # 所以：29 只跑免點擊的 connected 冒煙；e2e 全放 35（現代 WebView）。
         include:
           - api: 29
+            connected_filter: -Pandroid.testInstrumentationRunnerArguments.class=com.openmedia.downloader.YoutubeSplitMergeTest
+            run_e2e: false
+          - api: 35
             connected_filter: ''
             run_e2e: true
     env:
