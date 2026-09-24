@@ -80,6 +80,7 @@ jobs:
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
+          # unsigned 時檔名是 app-release-unsigned.apk，有簽章才是 app-release.apk。
           files: |
-            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/release/*.apk
             android/app/build/outputs/bundle/release/app-release.aab
