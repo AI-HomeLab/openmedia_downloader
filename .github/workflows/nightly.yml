@@ -25,16 +25,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 35 跑全套；29/33 只跑一條冒煙（resolve→下載→合併），證明 API 相容即可。
-        # 全量 connected 在三個 API 上又慢又容易一起卡住，之前 0/17 卡死就是這樣。
+        # 只跑 29：省矩陣麻煩。全量 connected＋e2e 都在同一台驗。
         include:
           - api: 29
-            connected_filter: -Pandroid.testInstrumentationRunnerArguments.class=com.openmedia.downloader.YoutubeSplitMergeTest
-            run_e2e: false
-          - api: 33
-            connected_filter: -Pandroid.testInstrumentationRunnerArguments.class=com.openmedia.downloader.YoutubeSplitMergeTest
-            run_e2e: false
-          - api: 35
             connected_filter: ''
             run_e2e: true
     env:
@@ -91,11 +84,25 @@ jobs:
           # 舊 API（29）在新 emulator 下開機易卡：關快照/音效/動畫，拉記憶體。
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -memory 4096
           script: |
+            set +e
             bash scripts/gradle.sh connectedDebugAndroidTest ${{ matrix.connected_filter }} -x :capacitor-cordova-android-plugins:connectedDebugAndroidTest
+            CT=$?
+            ET=0
             if [ "${{ matrix.run_e2e }}" = "true" ]; then
               bash scripts/gradle.sh assembleDebug
               adb install -r android/app/build/outputs/apk/debug/app-debug.apk
               curl -fsSL "https://get.maestro.mobile.dev" | bash
               export PATH="$HOME/.maestro/bin:$PATH"
               bash scripts/e2e.sh
+              ET=$?
             fi
+            adb logcat -d > /tmp/logcat-api-${{ matrix.api }}.txt || true
+            if [ "$CT" -ne 0 ]; then exit "$CT"; fi
+            exit "$ET"
+      # 跑完（無論成敗）把裝置 log 撈回來：resolve 這類失敗只剩 logcat 有根因。
+      - name: Upload device logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logcat-api-${{ matrix.api }}
+          path: /tmp/logcat-api-${{ matrix.api }}.txt
