@@ -1,0 +1,83 @@
+# 簽章發版（ticket 02）：打 v* tag 即產 signed AAB＋APK 並上傳到 GitHub Releases。
+# 私鑰只活在 Secrets＋runner 暫存：ANDROID_KEYSTORE_BASE64／KEYSTORE_PASSWORD／
+# KEY_ALIAS／KEY_PASSWORD（擁有者去 GitHub 網頁填，見 ticket 02）。
+# 沒配 secret 也能跑全鏈（產物為 unsigned，僅驗證用）。
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-home
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Enable corepack (pnpm 版號由 packageManager pin)
+        run: corepack enable
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SDK packages (compileSdk 36＋build-tools 35.0.0)
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "platforms;android-36" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Web static export
+        run: pnpm build
+
+      - name: Sync web into android
+        run: pnpm cap:sync
+
+      - name: Decode keystore (有配 secret 才做)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Assemble release APK
+        run: pnpm android:release
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Bundle release AAB
+        run: bash scripts/gradle.sh bundleRelease
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Report signing state
+        run: |
+          if [ "${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}" = "true" ]; then echo "signed build"; else echo "unsigned build (no secrets configured)"; fi
+
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
