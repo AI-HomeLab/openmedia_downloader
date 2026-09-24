@@ -26,9 +26,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # API 29 模擬器的系統 WebView 凍結在 Chrome 74（2019），React 19 的
-        # onClick 點不動（typing/label 正常；真機 WebView 會經 Play 更新，無此問題）。
-        # 所以：29 只跑免點擊的 connected 冒煙；e2e 全放 35（現代 WebView）。
+        # API 29 模擬器的系統 WebView 凍結在 Chrome 74（2019），連 `?.` 都 parse 不了：
+        # 看到的是靜態預渲染 HTML，所有 onClick 都沒掛上（typing/label 原生行為正常，
+        # 所以看起來像活的）。真機 WebView 會經 Play 更新，無此問題。
+        # 分工：29 跑免點擊的 connected 冒煙；e2e 全放 35（現代 WebView）。
         include:
           - api: 29
             connected_filter: -Pandroid.testInstrumentationRunnerArguments.class=com.openmedia.downloader.YoutubeSplitMergeTest

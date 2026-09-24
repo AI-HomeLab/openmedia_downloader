@@ -26,6 +26,9 @@ Android APK（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin → yt-dl
 - 模擬器走 `scripts/emulator.sh`（up 29|33|35、down、status），不用裝 Android Studio；
   要 KVM（`sudo gpasswd -a $USER kvm` 後重登）；`connectedAndroidTest` 是腳本測試主力，
   adb 點按只做手動補充。AVD 家目錄在 `.tools/.android`，不進版控。
+- API 29 模擬器的系統 WebView 凍結在 Chrome 74，不支援 `?.` 等語法：
+  看到的是靜態預渲染頁，React onClick 全死（typing/label 正常），Maestro 點按無效。
+  真機 WebView 經 Play 更新不受影響。結論：e2e 只跑 35，29 只跑免點擊 connected。
 - E2E 用 Maestro（`pnpm e2e` 跑 `scripts/e2e.sh`：清場→全流→MediaStore 落地斷言，
   認文字不認座標；WebView 內容透得出來已驗證）。
   CLI 裝 `~/.maestro`（不進版控）；flow 在 `e2e/*.yaml`，共用前綴在 `e2e/_common/`
