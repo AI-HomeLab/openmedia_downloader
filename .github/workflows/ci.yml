@@ -48,6 +48,9 @@ jobs:
       - name: Web static export
         run: pnpm build
 
+      - name: Sync web into android (本地順序固定：沒 sync 就沒有 cordova plugins 目錄)
+        run: pnpm cap:sync
+
       - name: Android unit tests
         run: pnpm android:test
 
