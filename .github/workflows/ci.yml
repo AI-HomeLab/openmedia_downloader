@@ -1,0 +1,59 @@
+# PR 擋門：JS 測試＋Android 單測＋debug 打包（ticket 01）。
+# 全用 runner 官方工具鏈，不用 repo 內 .tools/；connected／e2e 在 nightly。
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    env:
+      # 讓 scripts/gradle.sh 用 runner 的家目錄快取（官方 setup-gradle action 才吃得到）。
+      GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-home
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Enable corepack (pnpm 版號由 packageManager pin)
+        run: corepack enable
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages (compileSdk 36＋build-tools 35.0.0)
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "platforms;android-36" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Web tests
+        run: pnpm test
+
+      - name: Web static export
+        run: pnpm build
+
+      - name: Android unit tests
+        run: pnpm android:test
+
+      - name: Assemble debug APK
+        run: pnpm android:build
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
