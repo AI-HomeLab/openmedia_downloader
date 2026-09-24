@@ -19,9 +19,8 @@ on:
 
 jobs:
   matrix:
-    # 跑在組織自架 runner（NVIDIA AGX Thor，arm64）：家用出口 IP，
-    # YouTube／X／B 站不擋；模擬器用 arm64 映像原生跑，不用轉譯。
-    runs-on: [self-hosted, lab-agx-thor]
+    # 家用 x86_64 自架機（GTX 970）：KVM＋家用出口 IP，模擬器原生跑、站外不擋。
+    runs-on: [self-hosted, home-gtx970]
     # 模擬器若真卡死，不要燒 6 小時預設上限。
     timeout-minutes: 90
     strategy:
