@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-home
+      # secrets 不能直接進 if 運算式，先在 env 轉成普通字串再比。
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -50,7 +52,7 @@ jobs:
         run: pnpm cap:sync
 
       - name: Decode keystore (有配 secret 才做)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: env.HAS_KEYSTORE == 'true'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
@@ -73,7 +75,7 @@ jobs:
 
       - name: Report signing state
         run: |
-          if [ "${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}" = "true" ]; then echo "signed build"; else echo "unsigned build (no secrets configured)"; fi
+          if [ "$HAS_KEYSTORE" = "true" ]; then echo "signed build"; else echo "unsigned build (no secrets configured)"; fi
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
