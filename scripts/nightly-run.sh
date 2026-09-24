@@ -38,9 +38,12 @@ fi
 
 if [ "$RUN_E2E" = "true" ]; then
   echo "== assemble + install + e2e =="
+  # Maestro 裝過就跳過（~/.maestro 持久，不重複下載傷磁碟）。
+  if [ ! -x "$HOME/.maestro/bin/maestro" ]; then
+    curl -fsSL "https://get.maestro.mobile.dev" | bash
+  fi
   if bash scripts/gradle.sh assembleDebug \
-    && adb install -r android/app/build/outputs/apk/debug/app-debug.apk \
-    && curl -fsSL "https://get.maestro.mobile.dev" | bash; then
+    && adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then
     export PATH="$HOME/.maestro/bin:$PATH"
     if bash scripts/e2e.sh; then
       have_et=1

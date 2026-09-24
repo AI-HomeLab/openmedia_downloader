@@ -54,9 +54,12 @@ jobs:
           java-version: '21'
 
       - name: Install Android cmdline-tools (自架機無預裝 SDK 時自裝)
+        # 自架機是持久的：裝到 $HOME/android-sdk，裝一次就留著；
+        # 後續 run 的 sdkmanager 會跳過已裝的包，不再重複下載傷磁碟。
+        # （GH-hosted 跑 ci.yml 那條不走這裡，不受影響。）
         run: |
           if command -v sdkmanager > /dev/null 2>&1; then exit 0; fi
-          SDK="$RUNNER_TEMP/android-sdk"
+          SDK="$HOME/android-sdk"
           mkdir -p "$SDK/cmdline-tools"
           curl -fsSL -o /tmp/cmdtools.zip \
             https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip
