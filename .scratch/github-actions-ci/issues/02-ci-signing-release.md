@@ -5,9 +5,14 @@
 
 **Blocked by:** 01 — PR 擋門檢查（CI 打包底座先綠）.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] `signingConfigs.release` 讀 env（`ANDROID_KEYSTORE_BASE64`／`KEYSTORE_PASSWORD`／
-  `KEY_ALIAS`／`KEY_PASSWORD`），無 env 時本地行為不變
-- [ ] 用丟棄式測試 tag 實跑一次，Releases 出現 signed 包且能安裝；跑完刪 tag＋release
-- [ ] Secrets 填寫步驟寫進文件（值由擁有者去網頁填，agent 不經手）
+- [x] `signingConfigs.release` 讀 env（4 個 Secrets），無 env 時本地行為不變
+  （unsigned；驗證過 `app-release-unsigned.apk` 照出）
+- [x] 丟棄式測試 tag 實跑：tag 觸發＋unsigned 全鏈＋Releases 出現 AAB/APK，
+  擁有者手動確認發布成功；跑完刪 tag＋release
+- [x] Secrets 填寫步驟寫進文件（值由擁有者去網頁填，agent 不經手）
+- [x] 修掉兩個實測坑：`secrets` 不可進 `if:`（改 env 轉手）；unsigned APK 檔名差異
+
+剩餘（擁有者動作）：去 GitHub Settings → Secrets 填 4 個值，
+之後打正式 tag 即出 signed 包（屆時建議再跑一次驗簽章）。
