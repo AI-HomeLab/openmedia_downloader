@@ -22,6 +22,7 @@ WIPE_FAMILIES=(
   "Big_Buck_Bunny_360_10s_1MB"
   "Big_Buck_Bunny_720_10s_30MB"
   "Big Buck Bunny 60fps"
+  "不同类型的人表白被拒后的不同回复"
 )
 # 斷言：family|副檔名，每組跑完恰好一份。
 # 檔名規則（Downloader.toCleanName）：成品一律乾淨標題，dl- 只留快取中間檔；
@@ -31,6 +32,7 @@ EXPECT=(
   "Big_Buck_Bunny_360_10s_2MB|.mp4"
   "Big Buck Bunny 60fps|.mp4"
   "Big Buck Bunny 60fps|.mp3"
+  "不同类型的人表白被拒后的不同回复|.mp4"
 )
 MIN_SIZE=100000
 

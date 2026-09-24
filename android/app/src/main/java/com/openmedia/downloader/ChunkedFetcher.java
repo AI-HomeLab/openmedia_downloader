@@ -66,11 +66,9 @@ public final class ChunkedFetcher {
                         return new Result(total, total > 0);
                     }
                     if (code == 200 && start > 0) {
-                        // 伺服器無視 Range（每次都回全檔）：續要會無限疊檔，直接死。
-                        throw new DownloadException(DownloadError.NETWORK,
-                                "伺服器不支援分段下載（HTTP 200）");
-                    }
-                    if (code != 206 && !(code == 200 && start == 0)) {
+                        // 伺服器無視 Range 回全檔（B 站鏡像偶發，不是錯誤）：
+                        // 跳過已有的前段，後段接著寫（見下方 skip）。
+                    } else if (code != 206 && !(code == 200 && start == 0)) {
                         DownloadError mapped = (code == 403 || code == 429)
                                 ? DownloadError.EXTRACT : DownloadError.NETWORK;
                         throw new DownloadException(mapped,
@@ -78,6 +76,21 @@ public final class ChunkedFetcher {
                     }
                     long got = 0;
                     try (InputStream in = c.getInputStream()) {
+                        if (code == 200 && start > 0) {
+                            // 全檔從頭送：跳過已寫的前段，只接後段。
+                            long skipped = 0;
+                            while (skipped < start) {
+                                long s = in.skip(start - skipped);
+                                if (s <= 0) {
+                                    break;
+                                }
+                                skipped += s;
+                            }
+                            if (skipped < start) {
+                                // 全檔比已抓的還短：當尾端（有位元組就算乾淨）。
+                                return new Result(total, total > 0);
+                            }
+                        }
                         byte[] buf = new byte[64 * 1024];
                         int n;
                         while ((n = in.read(buf)) > 0) {
