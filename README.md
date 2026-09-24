@@ -1,264 +1,162 @@
 # OpenMedia Downloader
 
-基於 **Next.js + Capacitor** 開發、打包為 **Android APK** 的影音下載 App。
-UI 跑在手機 WebView，下載能力經由**自訂 YtDlp Capacitor Plugin** 呼叫
-**yt-dlp-android**（Chaquopy / CPython 3.13 + yt-dlp），需要時再用 FFmpeg 合併/轉檔。
+## 1. 解決什麼問題？
 
-> 舊版 `download_yt_video_or_audio.ipynb`（Gradio 範本）為**封存參考**，
-> 只用來理解舊行為，不再新增功能，不直接移植 Python/Gradio 程式碼。
+想在 Android 手機上把 YouTube、X、Bilibili 的公開影片或聲音存下來離線看，
+不用開電腦、不用接一堆轉檔工具。這個 App 就是做這件事的：
+**貼連結 → 選畫質 → 下載 → 存到手機 Downloads**，單片、整批清單、轉 mp3 都包。
 
-## 架構
+起點是桌機跑的一個 Gradio 範本（`download_yt_video_or_audio.ipynb`，已封存，
+只用來理解舊行為），第一版把它重做成手機原生體驗的 APK。
+
+## 2. 如何解決？用了哪些技術？
+
+核心想法只有一句：**解析跟下載分開，髒活全在原生端做，UI 只負責顯示**。
+
+- **Next.js UI** 跑在手機 WebView（靜態輸出，無 server）。UI 禁止碰影音 URL，
+  所有下載能力一律走自訂 Plugin bridge。
+- **自訂 YtDlp Capacitor Plugin**（TS 介面是唯一真相＋Android 原生實作）：
+  `resolve / download / cancel / getStatus`，進度走事件，錯誤分六級。
+- **yt-dlp 只做解析拿直連**，位元組走 Android 原生 `HttpURLConnection` 1MB 分段抓
+  （googlevideo 整包要會 403，逐段要就通；B 站另需完整頁 Referer＋桌面 UA＋`identity`）。
+- 需要合併/轉檔才用 **FFmpeg**（`bestaudio→mp3` 自轉；缺席或失敗就留原檔＋報 `POSTPROCESS`）。
+- 下載狀態機：`idle → resolving → downloading → postprocessing → done | error | cancelled`；
+  錯誤碼全 repo 一致：`NETWORK / EXTRACT / STORAGE / CANCELLED / POSTPROCESS / UNKNOWN`。
+- 儲存走 MediaStore（Scoped Storage），檔名為乾淨標題；播放清單上限 50 項、不打包 ZIP。
+
+## 3. 專案架構
 
 ```
 ┌─────────────────────────────────────┐
-│ Next.js UI                          │  ← 你自己做
+│ Next.js UI（apps/web）              │  ← 自研
 ├─────────────────────────────────────┤
-│ Capacitor                           │  ← 現成
+│ Capacitor（bridge）                 │  ← 現成
 ├─────────────────────────────────────┤
-│ 自訂 YtDlp Capacitor Plugin         │  ← 你自己做
+│ 自訂 YtDlp Plugin                   │  ← 自研（TS＋Android 原生）
 ├─────────────────────────────────────┤
-│ yt-dlp-android                      │  ← 現成
+│ yt-dlp-android（Maven Central）     │  ← 現成，只 pin 版＋呼叫
 ├─────────────────────────────────────┤
-│ Chaquopy / CPython 3.13             │  ← library 已處理
+│ Chaquopy / CPython 3.13＋yt-dlp    │  ← library；AAR 內建版太舊，
+│                                     │    用自帶 wheel 疊加蓋掉（見 ticket 09）
 ├─────────────────────────────────────┤
-│ yt-dlp                              │  ← library 已處理
-├─────────────────────────────────────┤
-│ FFmpeg                              │  ← 可整合
+│ FFmpeg（ffmpeg-kit audio，可開關）  │  ← 合併／轉檔用
 └─────────────────────────────────────┘
 ```
 
-| 層 | 來源 | 說明 |
-| --- | --- | --- |
-| Next.js UI | 自研 | 唯一的 UI 層，靜態輸出給 WebView 載入；下載一律走 Plugin bridge |
-| Capacitor | 現成 | 只做 `sync / update / config`，不重造、不 fork |
-| 自訂 YtDlp Plugin | 自研 | TS 介面（source of truth）+ Android 原生實作，負責 resolve/download/cancel/status、進度事件、錯誤分級 |
-| yt-dlp-android | 現成 | 只做版本 pin + 呼叫，不改內部 |
-| Chaquopy / CPython 3.13、yt-dlp | library 已處理 | 不要升級、不要 patch，初始化一次（singleton） |
-| FFmpeg | 可整合 | 合併影音 / 轉 mp3 用，可開關；無 FFmpeg 也要有最低可用功能 |
-
-下載狀態機：`idle → resolving → downloading → postprocessing → done | error | cancelled`，
-每個狀態都有對應 UI（進度%、速度、ETA、取消/重試）。
-
-## 功能範圍（以手機 UX 為準）
-
-- 單一影片 / 播放清單連結解析（resolve）
-- 下載影片（解析度語意選擇，不 hardcode YouTube `format_id`）/ 下載音檔（mp3）
-- 播放清單整批：先掃描→選 mp4/mp3＋預設 1080p（可逐項覆寫）→逐項下載，上限 50 項
-- 進度顯示、取消（冪等，整批停在當項並交代 N/M）、重試（單項走單下路徑）、錯誤分級提示
-- 儲存到 MediaStore / app-specific 目錄（Scoped Storage），檔名為乾淨標題
-- 詳細行為以 `.scratch/<feature>/spec.md` 為準，notebook 只做歷史對照
-
-### 支援範圍聲明（第一版驗收結論，有實證才寫）
-
-實證基礎：單測 37＋connected（merge／batch／X-Bili 驗收）常駐＋`pnpm e2e` 5 流，
-API 29/33/35 映像皆跑過。**但全部都在模擬器（x86_64）驗的，沒上過 arm64 真機**，
-這是目前最大盲點。
-
-- 站點：YouTube、X（單檔 progressive 為主）、Bilibili（DASH 分離式＋合併）三站驗收過；
-  其他站 best-effort（能解就用）。需登入/會員牆內容回「需登入、目前不支援」，不做登入。
-- B 站 App 分享的 `b23.tv` 短連結可直接貼：做法很簡單——解析時 yt-dlp 會展開成
-  正規 BV 頁，`ResolveResult` 把 `webpage_url` 留下來，分段下載時拿它當 Referer
-  （之前送短連結原文，CDN 認不得就 403）。
-- 畫質：整批預設 1080p（或該項最高可用≤1080p）＋最佳音質；B 站免登入列到 1080p。
-- 裝置：minSdk 29（Android 10+），64-bit only；APK 約 98MB。
-
-### 已知限制（誠實清單）
-
-- **YouTube 靠 overlay 續命**：AAR 內建 yt-dlp 已跟不上，靠自帶 wheel 2026.08.19 蓋掉；
-  YouTube 服務端再改版就要 bump（流程見 ticket 09）。
-- **B 站是軍備競賽**：CDN 要影片頁完整 Referer＋桌面 UA＋`identity` 編碼，缺一就 403；
-  B 站換 WAF 規則就再斷一次（定位方法：host curl 對照組，見 ticket 07）。
-- **通知列進度約 3 秒早退**：系統殺 service record，但 worker 續命所以下載照走；
-  前景使用無感，背景長批次有被回收風險。
-- **e2e 有外部脆弱點**：SoundHelix 主機會限速；YouTube 每次格式略有不同；
-  Google 測試清單刪片會連帶紅——這類紅是「驗收測試先報警」的設計，不是 bug。
-- **功能邊界**：不做登入／DRM／私享片；無分享、無內建播放器、無斷點續傳（失敗重抓）；
-  逐項調整目前是「每項選高度上限」，不是逐項看完整格式清單（50 項全 resolve 太慢，刻意折衷）。
-
-## 環境需求
-
-| 工具 | 基準 | 備註 |
-| --- | --- | --- |
-| Node | 22+（`.node-version` 為準，現為 24） | Capacitor 8 要求 Node 22+ |
-| pnpm | 11.x（`packageManager` pin，只用 `corepack pnpm`） | `pnpm-lock.yaml` 唯一，不混用 npm/yarn |
-| JDK | **21** | Capacitor 8 建議值；AGP 8.x 最低 17（本機系統 JDK 21 直用） |
-| Android SDK | **專案本地 `.tools/android-sdk`**（build-tools 35.0.0 + platform-35/36 + platform-tools） | 已裝好！`source .tools/env.sh` 或直接跑 `pnpm android:*`（`scripts/gradle.sh` 會自動指過去）；不需裝 Android Studio |
-| AGP / Gradle | 8.13.0 / 8.14.3（`gradle-wrapper.properties` 為準，`cap add` 帶入） | 只走 `scripts/gradle.sh`，不用系統 gradle |
-| 實機 / emulator | Android 10+、13+、15 各一台（或映像） | 見〈Android 10+ 支援〉 |
-
-完整版本基準見 `.opencode/prompts/rules-and-conventions.md §3.1`（升級要開獨立 ticket）。
-
-## 指令怎麼用（根 `package.json` 即契約）
-
-```bash
-corepack pnpm install      # 唯一安裝入口
-
-pnpm dev                   # Web UI 開發（scaffold 後指向 apps/web）
-pnpm build                 # Web 靜態匯出 → out/（不需要 Android SDK）
-pnpm test                  # JS 全測試（Vitest 方向；scaffold 前是 no-op）
-pnpm typecheck / pnpm lint # 有什麼跑什麼（--if-present）
-
-pnpm cap:sync              # cap sync android：把 out/ 同步進 android/
-pnpm android:test          # testDebugUnitTest（自動檢查 JDK 21 + SDK）
-pnpm android:build         # assembleDebug
-pnpm android:connected     # connectedAndroidTest（要接實機/emulator）
-
-pnpm build:apk             # 一鍵鏈：build → cap:sync → android:build
-pnpm test:all              # test + android:test
-pnpm e2e                   # Maestro UI 全環＋檔案落地斷言（`e2e/*.yaml`；要先開模擬器＋裝好 APK）
+```
+.
+├── apps/web/               # Next.js UI（靜態輸出給 WebView）
+│   ├── app/page.tsx        # 單下＋整批主畫面
+│   ├── app/batch-panel.tsx # 整批設定／進度／結果
+│   └── src/lib/ytdlp.ts    # Plugin TS 介面（source of truth）
+├── android/app/src/main/   # 原生側：Plugin＋下載管線＋Service
+│   └── java/com/openmedia/downloader/
+│       ├── YtDlpPlugin.java      # bridge（存 call、轉事件）
+│       ├── DownloadService.java  # foreground service（單下＋整批迴圈）
+│       ├── Downloader.java       # resolve→選片→分段抓→合併
+│       ├── ChunkedFetcher.java   # 1MB 分段＋續傳＋站點 headers
+│       ├── ResolveEngine.java    # 調 yt_dlp（單片＋清單 flat 掃描）
+│       └── MediaStoreSaver.java  # 存檔＋乾淨檔名
+├── e2e/                    # Maestro UI 全環（認文字不認座標）
+├── scripts/                # gradle.sh / emulator.sh / e2e.sh / setup.sh
+├── .tools/                 # 本地 JDK 21＋SDK（不進版控）
+├── .scratch/               # spec＋tickets（01–15）
+└── download_yt_video_or_audio.ipynb  # 封存參考
 ```
 
-> 為什麼 `build` 不直接產 APK？`pnpm build` 是純 Web 產物，沒 SDK 也能跑，
-> 讓只改 UI 的人不用裝 Android 環境；**「可打包」只認 `pnpm build:apk` 成功**。
-> CI 要綠 = `pnpm test:all` + `pnpm build:apk`。
+## 4. 依賴（第三方元件清單）
+
+| 元件 | 版本／來源 | 用途 | 授權（上游標示，採用前請自行核對） |
+| --- | --- | --- | --- |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | wheel overlay 2026.08.19（蓋掉 AAR 內建 2026.06.09） | 只做解析拿直連，不做下載 | Unlicense（公眾領域） |
+| yt-dlp-android | Maven Central `dev.ffmpegkit-maintained:yt-dlp-android:2.0.2` | Chaquopy＋Python 殼＋`YtDlp.init` | 見上游 repo 標示 |
+| Chaquopy＋CPython | 17.0.0＋Python 3.13 | Android 上跑 yt-dlp | MIT（SDK） |
+| ffmpeg-kit audio | Maven Central 8.1.8（可開關） | 合併影音／轉 mp3 | GPL 系列——散佈 APK 前請自行確認義務 |
+| Capacitor | 8.x | WebView bridge | MIT |
+| Next.js／React | 16.x／19 | UI | MIT |
+
+政策：現成/library 層只 pin 版、不 fork、不手改；升級開獨立 ticket 並重測全流程。
+不要把 notebook 的 `format_id` 白名單照搬進 App，改用解析度語意選 format。
+
+## 5. 侷限性（有實證才寫）
+
+實證基礎：單測 37＋connected 常駐＋`pnpm e2e` 6 流，API 29/33/35 映像皆跑過。
+**但全部都在模擬器（x86_64）驗的，沒上過 arm64 真機**，這是目前最大盲點。
+
+- **YouTube 靠 overlay 續命**：AAR 內建 yt-dlp 已跟不上，YouTube 服務端再改版就要 bump（流程見 ticket 09）。
+- **B 站是軍備競賽**：CDN 規則一換就可能再斷（定位方法：host curl 對照組，見 ticket 07）。
+- **通知列進度約 3 秒早退**：下載本身靠 worker 續命不受影響；背景長批次有被回收風險。
+- **e2e 有外部脆弱點**：SoundHelix 限速、YouTube 格式浮動、測試清單刪片——這類紅是驗收報警，不是 bug。
+- **功能邊界**：不做登入／DRM／私享片；無分享、無內建播放器、無斷點續傳；
+  逐項調整是「每項選高度上限」；minSdk 29、64-bit only；APK 約 94MB。
 
 ## 快速開始
 
 ```bash
-# 0. 確認工具鏈
-node -v                    # 22+
-pnpm -v                    # 11.x
+corepack pnpm install      # 唯一安裝入口
+pnpm setup                 # 新機器一鍵裝本地工具鏈（JDK 21＋SDK，冪等）
 
-# 新機器第一件事：一鍵裝本地工具鏈（JDK 21 + SDK，冪等，已有會跳過）
-pnpm setup
-# 只需 curl/unzip/tar + Linux x86_64；全裝在 .tools/（不進版控）
+pnpm build                 # Web 靜態匯出（免 SDK）
+pnpm cap:sync              # 同步進 android/（改 UI 必跑，否則看到舊產物）
+pnpm android:test          # testDebugUnitTest
+pnpm android:build         # assembleDebug
+pnpm android:connected     # connectedAndroidTest（要接實機/emulator）
+pnpm test:all              # test＋android:test
 
-# 1. 安裝 + Web 建置（不需要 Android SDK 也能跑）
-corepack pnpm install
-pnpm build
-
-# 2. 同步進 Android（每次改 UI 必跑，否則看到舊產物）
-pnpm cap:sync
-
-# 3. Android 單元測試 + 打包（需要 SDK；本機沒裝會直接報錯）
-pnpm android:test
-pnpm android:build
-# 產物：android/app/build/outputs/apk/debug/app-debug.apk
-
-# 或一鍵：pnpm build:apk
+pnpm build:apk             # 一鍵鏈：build → cap:sync → android:build
+pnpm e2e                   # Maestro 全環＋檔案落地斷言（先 up 模擬器＋裝 APK）
 ```
 
-## 專案結構（目標）
+> 為什麼 `build` 不直接產 APK？純 Web 產物，沒 SDK 也能跑；
+> **「可打包」只認 `pnpm build:apk` 成功**。CI 要綠＝`test:all`＋`build:apk`。
+> Gradle 一律經 `scripts/gradle.sh`（會 `cd android/`），不用系統 gradle。
 
-```
-.
-├── package.json / pnpm-workspace.yaml / pnpm-lock.yaml  # pnpm 契約（test/build/apk 唯一入口）
-├── .node-version           # Node pin（現為 24）
-├── scripts/gradle.sh       # Gradle 統一入口（JDK/SDK 檢查 + 調 android/gradlew）
-├── .tools/                 # 專案本地工具（SDK、JDK 21、Gradle 快取；不進版控）
-├── android/                # Gradle 骨架（pre-Capacitor：可跑 test/assemble；`cap add` 後補 BridgeActivity）
-├── apps/web/               # Next.js UI（靜態輸出，output: 'export' 方向；待 scaffold）
-├── plugins/ytdlp/          # 自訂 Plugin：TS 定義 + Android 原生實作（待 scaffold）
-├── capacitor.config.ts     # Capacitor 設定（webDir 指向 out/；待 scaffold）
-├── docs/ / guides/         # 補充文件（roadmap、驗收記錄）
-├── .scratch/               # spec + tickets（依 dev-workflow）
-├── .opencode/prompts/      # 本專案的 rules / workflow / gotchas
-├── download_yt_video_or_audio.ipynb  # 封存參考（Gradio 範本，不再改）
-└── README.md
-```
-
-實際目錄名以建置時的 repo 為準，結構漂移時優先更新本節。
-
-## Android 10+ 支援
-
-`minSdk 29`，即 Android 10（含）以上。選 29 而不是 Capacitor 最低的 24，理由：
-
-- **Scoped Storage（API 29 起強制）**：29 允許 `requestLegacyExternalStorage` 過渡，
-  30+ 完全移除。直接以 29 為底，全版本統一走 MediaStore / app-specific 目錄，
-  不寫過渡期髒 code。
-- **權限分水嶺一次處理**：API 33+ 媒體權限改 `READ_MEDIA_VIDEO/AUDIO`、
-  通知要 `POST_NOTIFICATIONS`；API 34+ 前景服務要宣告類型。targetSdk 35 下這些全是強制行為，
-  minSdk 29 讓相容層只需覆蓋 29→35。
-- **64-bit 全覆蓋**：yt-dlp-android 免費版只包 arm64-v8a + x86_64。
-  Android 10+ 裝置幾乎全 64-bit；32-bit（armeabi-v7a）舊機明確不支援，要在上架說明寫清。
-- **16KB page**：Android 15+（API 35）裝置要求 16KB page 相容；
-  Chaquopy 配 CPython 3.13 即為此（3.13+ 相容性最佳）。
-
-驗收矩陣（至少）：API 29 實機或映像（儲存行為）+ API 33（新媒體/通知權限）+
-API 35（targetSdk、16KB）。ticket 要寫明測過的 API level。
-
-## 開發流程
-
-- Web UI：`pnpm build`，再 `pnpm cap:sync`，最後一定要跑 Gradle build 才算數。
-- Plugin/原生：`pnpm cap:sync` + `pnpm android:test` + `pnpm android:build`。
-- 下載鏈：`pnpm android:connected` 或實機/emulator，走一次 `resolve → download → cancel → retry`，並記錄裝置型號 / API level。
-- 完整六階段管線（grilling → to-spec → to-tickets → implement&tdd → code-review → archive）
-  見 `.opencode/prompts/dev-workflow.md`；規範見 `rules-and-conventions.md`，避坑見 `gotchas.md`。
-- `opencode.jsonc` 已掛載上述三份提示詞，不需另行指定。
-
-## Plugin 介面約定
-
-- TS 定義是唯一真相，建議形狀（命名定案後全 repo 一致）：`resolve() / download() / cancel() / getStatus()`。
-- 原生跑 background thread，進度用 event/listener 回傳，不 polling。
-- 錯誤分級：`NETWORK / EXTRACT / STORAGE / CANCELLED / POSTPROCESS / UNKNOWN`，
-  UI 據此顯示重試/提示文案。
-- `cancel()` 冪等；頁面卸載/完成/取消時移除 listener。
-
-## yt-dlp / FFmpeg 版本策略
-
-- `yt-dlp-android`、Chaquopy、yt-dlp 只 pin 版本，不 fork、不手改；升級開獨立 ticket 並重測全流程。
-- 不要把 notebook 的 `format_id` 白名單照搬進 App，改用解析度 + 檔案大小語意選 format。
-- FFmpeg 缺席時仍可下載；轉碼失敗保留原檔並回 `POSTPROCESS`，UI 要區分 `done` 與 `done（未合併）`。
-
-## 打包與簽章（`pnpm build:apk` 為唯一口徑）
+### 模擬器＋E2E
 
 ```bash
-pnpm build                   # 先產 Web 靜態檔（免 SDK）
-pnpm cap:sync                # 同步進 android/
-pnpm android:test            # 先測（testDebugUnitTest）
-pnpm android:build           # debug APK（可打包 = 這步成功）
-pnpm android:release         # release（需簽章）
-pnpm android:connected       # 有真機/emulator 且動到下載鏈時加跑
-
-# 一鍵：pnpm build:apk（= 上面 build→sync→build 全鏈）
+bash scripts/emulator.sh up 35            # up 29|33|35、down、status；要 KVM
+source .tools/env.sh && adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+pnpm e2e
 ```
 
-- keystore（`.jks`/`.keystore`）、密碼、key alias **絕不進 repo**，也不貼在 log/issue。
-- 權限遵守 Scoped Storage，不寫死 `/sdcard/`，不申請非必要的 `MANAGE_ALL_FILES`。
+- Maestro（`~/.maestro`，不進版控）認 accessibility 文字；WebView 內容透得出來已驗證。
+- 坑（完整版見 AGENTS）：`tapOn` 是 regex 全比對，中文用精確全文；
+  a11y 樹剪 fold 下節點，CTA 用 sticky 保可點，不要在 flow 裡 scroll 再點。
 
 ## 疑難排解
 
 | 症狀 | 先查 |
 | --- | --- |
-| 白屏 / 404 | Next.js 是否 `output: 'export'`、Capacitor `webDir` 是否指向輸出目錄、有無用到 API Route/SSR |
-| 下載沒反應 | 是否繞過 Plugin 直接 `fetch`、listener 是否重複訂閱/未清除 |
+| 白屏 / 404 | `output: 'export'`、Capacitor `webDir`、有無 API Route/SSR |
+| 下載沒反應 | 是否繞過 Plugin 直接 `fetch`、listener 是否重複訂閱 |
 | 變慢 / OOM | Chaquopy 是否重複 init、是否在 UI thread 跑下載 |
-| 合併失敗 | FFmpeg 是否缺席、有無保留原檔並回 `POSTPROCESS` |
-| 存檔找不到 / 權限拒絕 | 是否寫死路徑、有無用 MediaStore/app-specific、測過的 API level（29/33/35 行為不同） |
+| 合併失敗 | FFmpeg 是否缺席、有無留原檔＋`POSTPROCESS` |
+| 存檔找不到 | 是否寫死路徑、有無用 MediaStore、測過的 API level |
 | Gradle 失敗 | `java -version` 是否 21、是否經 `scripts/gradle.sh`、有無跑過 `cap:sync` |
-| `pnpm android:*` 直接報錯 | `ANDROID_HOME` 是否存在（先跑 `pnpm setup` 補 SDK） |
 
-## E2E（Maestro，認文字不認座標）
+## 開發流程（六階段，不跳階段）
 
-```bash
-# 前置：Maestro CLI（curl -fsSL https://get.maestro.mobile.dev | bash，需 Java 17+；
-# 裝在 ~/.maestro，不進版控）＋開模擬器＋裝好 APK
-bash scripts/emulator.sh up 35
-pnpm android:build
-source .tools/env.sh && adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-
-pnpm e2e                    # 跑 e2e/*.yaml 全流
-```
-
-- Flow 是 YAML（`tapOn: 下載`、`assertVisible`、`inputText`、`extendedWaitUntil`），
-  認 accessibility 文字——Capacitor WebView 內容在 Android 上透得出來，已驗證。
-- `pnpm e2e` 跑的是 `scripts/e2e.sh`：先清場（刪測試檔家族）、跑全流、
-  再斷言 MediaStore **恰好一份＋>100KB**（多一份＝重複下單，直接 fail）。
-- `inputText` 只吃 ASCII（Maestro 已知限制）；URL 都是 ASCII 沒差。
-- `tapOn`/`assertVisible` 的文字其實走 regex 全比對：**pattern 含中文必 miss，改用精確全文**
-  （如 `"480p mp4・26.9 MB"`）；純 ASCII regex（`"完成.*"`）可用。
-- a11y 樹會剪掉 fold 下的節點：CTA（下載列）用 sticky bottom bar 常駐可視區，
-  不要在 flow 裡 `scrollUntilVisible` 再點（捲動後 tap 會卡住、重複下單）。
-- YouTube 每次 resolve 的格式集合略有不同（SABR）：低畫質選項時有時無；
-  flow 釘「每次都在且大小穩定」的 480p mp4・26.9 MB，換片/改版要重驗。
-- API 35 相容性官方寫 Q2 2026 到位；本 repo 另有 29/33 AVD 可避（`emulator.sh up 29`）。
+grilling → to-spec → to-tickets → implement&tdd → code-review → archive，
+見 `.opencode/prompts/dev-workflow.md`；規範 `rules-and-conventions.md`；避坑 `gotchas.md`。
+`opencode.jsonc` 已掛載三份，不需另行指定。Plugin 介面約定：TS 唯一真相、
+原生跑 background、進度走 event、`cancel()` 冪等、卸載時清 listener。
 
 ## 合規提醒
 
 僅下載你有權利保存的內容。YouTube 等平台的 ToS 可能限制下載，請遵守當地法規與平台條款，
 本專案不提供規避 DRM/付費牆的功能。
 
-## 授權
+## 授權（Unlicense，公眾領域）
 
-（尚未定案時保留本節，定案後填入，例如 MIT / Apache-2.0，並確認 yt-dlp-android、Chaquopy、
-FFmpeg 各自授權相容。）
+本專案以 [Unlicense](https://unlicense.org/) 釋出到公眾領域，全文見 `UNLICENSE`。
+跟上游 yt-dlp 一樣：你可以自由複製、修改、散佈、商用，不用署名。
+
+**但請注意（無保證＋法律風險自負）：**
+
+- 本軟體按「現狀」提供，**不提供任何保證**，作者不對使用後果負責。
+- Unlicense 處理的是**本專案自研程式碼**的授權；打包進 APK 的第三方元件
+  （見上表：FFmpeg 的 GPL 系列、Chaquopy、Capacitor 等）**各有自己的授權**，
+  散佈前請自行確認相容與義務。
+- 下載功能本身**可能侵害第三方權利**（平台服務條款、著作權、地區法規）：
+  用這個工具抓了不該抓的東西，責任在使用者，不在本專案。
+  不確定的內容就不要下載。

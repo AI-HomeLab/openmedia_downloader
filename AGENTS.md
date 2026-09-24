@@ -1,14 +1,15 @@
 # AGENTS.md — OpenMedia Downloader
 
-Android APK 專案（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin → yt-dlp-android）。
-詳細規範由 `opencode.jsonc` 載入 `.opencode/prompts/`（rules / workflow / gotchas）；
+Android APK（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin → yt-dlp-android）。
+產品說明看 README（解決什麼／架構／依賴／侷限／授權）；規範由 `opencode.jsonc`
+載入 `.opencode/prompts/`（rules / workflow / gotchas）。
 這裡只收錄沒寫進那三份、agent 容易踩的實作層事實。
 
 ## 指令（唯一入口，不自己發明）
 
 - JS 只用 `corepack pnpm`；`pnpm-lock.yaml` 唯一，不混 npm/yarn。
 - `pnpm setup` — 新機器一鍵裝本地工具鏈（JDK 21 + SDK，冪等）。先跑它再跑別的。
-- `pnpm test` / `pnpm build` — 目前是 no-op（`apps/web` 尚未 scaffold）；變綠不代表任何事。
+- `pnpm test`（Vitest）/ `pnpm build`（靜態匯出）是真的；`pnpm test:all`＝test＋android:test。
 - `pnpm cap:sync` → `pnpm android:test` → `pnpm android:build`，順序固定；
   `pnpm build:apk` 是一鍵全鏈，「可打包」只認它。
 - Gradle 一律經 `pnpm android:*`（背後是 `scripts/gradle.sh`），不手打 `gradlew`，
@@ -25,8 +26,10 @@ Android APK 專案（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin �
 - 模擬器走 `scripts/emulator.sh`（up 29|33|35、down、status），不用裝 Android Studio；
   要 KVM（`sudo gpasswd -a $USER kvm` 後重登）；`connectedAndroidTest` 是腳本測試主力，
   adb 點按只做手動補充。AVD 家目錄在 `.tools/.android`，不進版控。
-- E2E 用 Maestro（`pnpm e2e`，認文字不認座標；WebView 內容透得出來已驗證）。
-  CLI 裝 `~/.maestro`（不進版控）；flow 在 `e2e/*.yaml`；跑之前先 up 模擬器＋裝 APK。
+- E2E 用 Maestro（`pnpm e2e` 跑 `scripts/e2e.sh`：清場→全流→MediaStore 落地斷言，
+  認文字不認座標；WebView 內容透得出來已驗證）。
+  CLI 裝 `~/.maestro`（不進版控）；flow 在 `e2e/*.yaml`，共用前綴在 `e2e/_common/`
+  （子流需自帶 `appId`；`maestro test e2e/` 不會跑 `_common/`）；跑之前先 up 模擬器＋裝 APK。
   坑：tapOn 是 regex 全比對（含中文 pattern 必 miss，用精確全文）；
   a11y 樹剪 fold 下節點（CTA 用 sticky 保可點，不在 flow 裡 scroll 再點）。
 - `/dev/kvm` 掉權限（`user` 不在有效 groups）且 sudo 要密碼時，
@@ -43,14 +46,14 @@ Android APK 專案（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin �
 
 ## Repo 現況與邊界
 
-- `android/` 是 pre-Capacitor 骨架：`MainActivity` 是佔位，`cap add` 後換 BridgeActivity；
-  `apps/web/`、`plugins/ytdlp/`、`capacitor.config.ts` 都還沒建。`cap:sync` 在 web 產物出來前會失敗，是預期的。
-- 能動：Next.js UI、自訂 Plugin 的 TS + Android 原生、兩側錯誤/進度對齊。
-  只 pin 不改：Capacitor、yt-dlp-android（`ffmpegkit-maintained`，免費版僅 arm64-v8a + x86_64）、
-  Chaquopy/CPython/yt-dlp 本體。FFmpeg 可開關，缺席要有 fallback。
+- 自研：`apps/web/`（UI＋`src/lib/ytdlp.ts` 介面）、`android/app/.../downloader/`
+  （Plugin＋下載管線＋Service）。只 pin 不改：Capacitor、yt-dlp-android
+  （`ffmpegkit-maintained`，免費版僅 arm64-v8a + x86_64）、
+  Chaquopy/CPython/yt-dlp 本體（AAR 內建版太舊，用 `assets/ytdlp/` wheel 疊加蓋掉，見 ticket 09）。
+  FFmpeg 可開關，缺席要有 fallback。
 - `download_yt_video_or_audio.ipynb` 是封存參考；`format_id` 白名單已過期，改用解析度語意選 format。
-- 錯誤碼全 repo 一致：`NETWORK / EXTRACT / STORAGE / CANCELLED / POSTPROCESS / UNKNOWN`
- （Android 側已有 `DownloadError.java` 對應實作 + 測試）。
+- 錯誤碼全 repo 一致：`NETWORK / EXTRACT / STORAGE / CANCELLED / POSTPROCESS / UNKNOWN`。
+- 授權：Unlicense（見 `UNLICENSE`＋README 授權節）；第三方元件授權各歸各，散佈前自行確認。
 
 ## 紅線
 
