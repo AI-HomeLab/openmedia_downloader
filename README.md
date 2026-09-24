@@ -56,6 +56,9 @@ API 29/33/35 映像皆跑過。**但全部都在模擬器（x86_64）驗的，�
 
 - 站點：YouTube、X（單檔 progressive 為主）、Bilibili（DASH 分離式＋合併）三站驗收過；
   其他站 best-effort（能解就用）。需登入/會員牆內容回「需登入、目前不支援」，不做登入。
+- B 站 App 分享的 `b23.tv` 短連結可直接貼：做法很簡單——解析時 yt-dlp 會展開成
+  正規 BV 頁，`ResolveResult` 把 `webpage_url` 留下來，分段下載時拿它當 Referer
+  （之前送短連結原文，CDN 認不得就 403）。
 - 畫質：整批預設 1080p（或該項最高可用≤1080p）＋最佳音質；B 站免登入列到 1080p。
 - 裝置：minSdk 29（Android 10+），64-bit only；APK 約 98MB。
 
