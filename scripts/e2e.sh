@@ -8,10 +8,15 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export ANDROID_AVD_HOME="$ROOT/.tools/.android/avd"
-export ANDROID_SDK_HOME="$ROOT/.tools/.android"
-export ANDROID_HOME="$ROOT/.tools/android-sdk"
-export PATH="$ANDROID_HOME/platform-tools:$HOME/.maestro/bin:$PATH"
+# 本地 .tools 優先；CI 沒有 .tools 就認 runner 的 ANDROID_HOME。
+if [ -d "$ROOT/.tools/android-sdk/platform-tools" ]; then
+  export ANDROID_AVD_HOME="$ROOT/.tools/.android/avd"
+  export ANDROID_SDK_HOME="$ROOT/.tools/.android"
+  export ANDROID_HOME="$ROOT/.tools/android-sdk"
+  export PATH="$ANDROID_HOME/platform-tools:$HOME/.maestro/bin:$PATH"
+else
+  export PATH="$HOME/.maestro/bin:$PATH"
+fi
 
 URI="content://media/external_primary/downloads"
 
