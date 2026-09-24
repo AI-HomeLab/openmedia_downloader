@@ -1,6 +1,10 @@
 # 共用前綴：開 App（清狀態）＋斷言首屏。給各主 flow runFlow，不可單獨跑。
+# 首屏用等候式斷言：冷開機（CI 首跑、WebView 冷啟動）首幀要數十秒，
+# assertVisible 會在首幀前就判死。
 appId: com.openmedia.downloader
 ---
 - launchApp:
     clearState: true
-- assertVisible: OpenMedia
+- extendedWaitUntil:
+    visible: OpenMedia
+    timeout: 120000
