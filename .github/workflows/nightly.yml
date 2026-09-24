@@ -49,11 +49,25 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Install Android cmdline-tools (自架機無預裝 SDK 時自裝)
+        run: |
+          if command -v sdkmanager > /dev/null 2>&1; then exit 0; fi
+          SDK="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSL -o /tmp/cmdtools.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip
+          unzip -q /tmp/cmdtools.zip -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+
       - name: Install SDK packages
         run: |
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platforms;android-36" "build-tools;35.0.0" "platforms;android-${{ matrix.api }}"
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;35.0.0" "platforms;android-${{ matrix.api }}"
 
       - uses: gradle/actions/setup-gradle@v4
 
