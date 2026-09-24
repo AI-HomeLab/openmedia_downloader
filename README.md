@@ -66,14 +66,13 @@
 
 ## 4. 依賴（第三方元件清單）
 
-| 元件 | 版本／來源 | 用途 | 授權（上游標示，採用前請自行核對） |
+| 元件 | 版本／來源 | 用途 | 授權（已核對上游原文） |
 | --- | --- | --- | --- |
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | wheel overlay 2026.08.19（蓋掉 AAR 內建 2026.06.09） | 只做解析拿直連，不做下載 | Unlicense（公眾領域） |
-| yt-dlp-android | Maven Central `dev.ffmpegkit-maintained:yt-dlp-android:2.0.2` | Chaquopy＋Python 殼＋`YtDlp.init` | 見上游 repo 標示 |
+| yt-dlp-android | Maven Central `dev.ffmpegkit-maintained:yt-dlp-android:2.0.2` | Chaquopy＋Python 殼＋`YtDlp.init` | MIT（Copyright 2026 LucQuebec）；內附第三方聲明（AAR 內 `THIRD-PARTY-NOTICES.txt`） |
+| ffmpeg-kit audio | Maven Central `dev.ffmpegkit-maintained:ffmpeg-kit-audio:8.1.8`（**非 `-gpl` 版**） | 合併影音／轉 mp3 | **LGPL-3.0**（弱 copyleft；`-gpl` 版才是 GPL，絕對不要換過去） |
 | Chaquopy＋CPython | 17.0.0＋Python 3.13 | Android 上跑 yt-dlp | MIT（SDK） |
-| ffmpeg-kit audio | Maven Central 8.1.8（可開關） | 合併影音／轉 mp3 | GPL 系列——散佈 APK 前請自行確認義務 |
-| Capacitor | 8.x | WebView bridge | MIT |
-| Next.js／React | 16.x／19 | UI | MIT |
+| Capacitor 8／Next.js／React | 見 lockfile | bridge／UI | MIT |
 
 政策：現成/library 層只 pin 版、不 fork、不手改；升級開獨立 ticket 並重測全流程。
 不要把 notebook 的 `format_id` 白名單照搬進 App，改用解析度語意選 format。
