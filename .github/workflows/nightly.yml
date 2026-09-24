@@ -84,21 +84,23 @@ jobs:
           # 舊 API（29）在新 emulator 下開機易卡：關快照/音效/動畫，拉記憶體。
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -memory 4096
           script: |
-            set +e
-            bash scripts/gradle.sh connectedDebugAndroidTest ${{ matrix.connected_filter }} -x :capacitor-cordova-android-plugins:connectedDebugAndroidTest
-            CT=$?
-            ET=0
+            # action 可能用 bash -e 跑整段：每個會失敗的命令自帶 || true，
+            # 結果記 marker，最後才 exit——否則 logcat 撈不到就直接跳出。
+            rm -f /tmp/nightly-ct-pass /tmp/nightly-et-pass
+            bash scripts/gradle.sh connectedDebugAndroidTest ${{ matrix.connected_filter }} -x :capacitor-cordova-android-plugins:connectedDebugAndroidTest && touch /tmp/nightly-ct-pass || true
             if [ "${{ matrix.run_e2e }}" = "true" ]; then
-              bash scripts/gradle.sh assembleDebug
-              adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-              curl -fsSL "https://get.maestro.mobile.dev" | bash
-              export PATH="$HOME/.maestro/bin:$PATH"
-              bash scripts/e2e.sh
-              ET=$?
+              bash scripts/gradle.sh assembleDebug \
+                && adb install -r android/app/build/outputs/apk/debug/app-debug.apk \
+                && curl -fsSL "https://get.maestro.mobile.dev" | bash \
+                && export PATH="$HOME/.maestro/bin:$PATH" \
+                && bash scripts/e2e.sh \
+                && touch /tmp/nightly-et-pass || true
+            else
+              touch /tmp/nightly-et-pass
             fi
             adb logcat -d > /tmp/logcat-api-${{ matrix.api }}.txt || true
-            if [ "$CT" -ne 0 ]; then exit "$CT"; fi
-            exit "$ET"
+            [ -f /tmp/nightly-ct-pass ] || exit 1
+            [ -f /tmp/nightly-et-pass ] || exit 1
       # 跑完（無論成敗）把裝置 log 撈回來：resolve 這類失敗只剩 logcat 有根因。
       - name: Upload device logcat
         if: always()
