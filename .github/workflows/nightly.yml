@@ -13,6 +13,14 @@ concurrency:
 on:
   push:
     branches: [main]
+    # 文件類合併（README/AGENTS/tickets）不燒 30 分鐘 runner：只在碰到
+    # 程式／測試／CI 本體時跑；每週排程＋手動不受此限。
+    paths:
+      - 'android/**'
+      - 'apps/web/**'
+      - 'e2e/**'
+      - 'scripts/**'
+      - '.github/workflows/nightly.yml'
   schedule:
     - cron: '0 16 * * 0'
   workflow_dispatch:

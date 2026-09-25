@@ -114,6 +114,20 @@ pnpm e2e                   # Maestro 全環＋檔案落地斷言（先 up 模擬
 > **「可打包」只認 `pnpm build:apk` 成功**。CI 要綠＝`test:all`＋`build:apk`。
 > Gradle 一律經 `scripts/gradle.sh`（會 `cd android/`），不用系統 gradle。
 
+### CI 流程（三條，各司其職）
+
+| workflow | 觸發 | 做什麼 | 紅了代表什麼 |
+| --- | --- | --- | --- |
+| `ci` | PR＋push main | `test`＋`android:test`＋`build:apk`（全 GH-hosted，確定性高） | 真回歸，擋 merge |
+| `nightly` | push main（只限程式／測試／CI 路徑變更）＋每週一 00:00＋手動 | 自架機：connected（29 冒煙＋35 全量）＋`pnpm e2e` | 站外抖動或真回歸，看 log 定性；從不擋 PR |
+| `release` | 打 `v*` tag＋手動 | signed AAB＋APK → Releases | 發版鏈斷了才修 |
+
+讀懂 Actions 頁的三個重點：
+
+- **PR 本身只會觸發 `ci`**。你在 PR 旁邊看到的 `nightly`，是「合併進 main 那一刻的 push」或「有人手動按的」，不是 PR 帶起來的。
+- **一次只跑一份 nightly**（`concurrency`）：後到的 run 會砍掉先到的，被砍的那個顯示 cancelled——這是省分鐘數的設計，不是失敗。
+- **cancelled 會被 GitHub 算進 unsuccessful**：所以 merge 頁可能出現「2 cancelled and 1 successful」紅字，只要真正跑完的那次是綠的就沒事，不要被紅字嚇到。
+
 ### 模擬器＋E2E
 
 ```bash
