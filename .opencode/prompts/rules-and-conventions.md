@@ -67,6 +67,7 @@
 | compileSdk / targetSdk | 36 | `variables.gradle`；Play 上架要求 |
 | minSdk | 29 | 即 Android 10+（見 README〈Android 10+ 支援〉） |
 | Chaquopy + CPython | 17.0.0 + Python 3.13 | 16.0 起支援 3.13；3.13 利於 16KB page 裝置 |
+| AndroidX security-crypto | 1.1.0-alpha06（MasterKey Builder 要 1.1.x；stable 出了就跟進） | cookie session 加密存；minSdk 29 ≥ 所需 23 |
 | yt-dlp-android | Maven Central `dev.ffmpegkit-maintained:yt-dlp-android:2.0.2` | 無 resolve API（只回 exit code）；免費版僅 arm64-v8a + x86_64 |
 | yt-dlp | wheel overlay 2026.08.19（蓋掉 AAR 內建 2026.06.09，見 ticket 09） | AAR 無新版時的權宜；上游更新即重估移除 |
 | FFmpeg | ffmpeg-kit audio 包 8.1.8（Maven Central，可開關） | bestaudio→mp3 自轉（libmp3lame）；缺席/失敗 fallback 留原檔 |

@@ -57,6 +57,9 @@ dependencies {
     implementation 'dev.ffmpegkit-maintained:yt-dlp-android:2.0.2'
     // ffmpeg-kit audio 包：bestaudio → mp3 轉檔用（只留 64-bit，對齊 yt-dlp-android）
     implementation 'dev.ffmpegkit-maintained:ffmpeg-kit-audio:8.1.8'
+    // EncryptedSharedPreferences（cookie session 加密存；API 23+ 可用，本專案 minSdk 29）
+    // MasterKey Builder API 要 1.1.x（目前只有 alpha）；stable 1.1.0 出了就跟進。
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
     testImplementation "junit:junit:$junitVersion"
     // org.json 真實作：android.jar 內的是 stub，單元測試要加這個才跑得動
     testImplementation 'org.json:json:20240303'

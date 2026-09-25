@@ -43,7 +43,8 @@ MIN_SIZE=100000
 
 mc_list() {
   # adb shell 會吃掉迴圈的 stdin，一律 < /dev/null（否則 wipe 刪一筆就 EOF）。
-  adb shell 'content query --uri '"$URI"' --projection _id:_display_name:_size' < /dev/null
+  # 輸出是 CRLF：$ 錨點會被 \r 打掉，先 tr 清掉（review F3）。
+  adb shell 'content query --uri '"$URI"' --projection _id:_display_name:_size' < /dev/null | tr -d '\r'
 }
 
 mc_delete_id() {
@@ -52,6 +53,11 @@ mc_delete_id() {
 }
 
 echo "== e2e 清場 =="
+# App 必須先裝好（connected 跑完有時會把主 APK 卸掉；沒裝就秒死，不要燒 5 分鐘 timeout 才發現）。
+if ! adb shell pm list packages 2>/dev/null | grep -q "package:com.openmedia.downloader$"; then
+  echo "FAIL: com.openmedia.downloader 未安裝，先裝 APK 再跑"
+  exit 1
+fi
 while IFS= read -r row; do
   id="$(echo "$row" | grep -oE "_id=[0-9]+" | cut -d= -f2 || true)"
   name="$(echo "$row" | sed 's/.*_display_name=//; s/, _size.*//' || true)"

@@ -50,6 +50,22 @@ input[type='text'] {
   padding: 10px 14px;
   outline: none;
 }
+textarea {
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  outline: none;
+}
+textarea:focus {
+  border-color: var(--accent);
+}
+h2 {
+  font-size: 18px;
+  margin: 24px 0 8px;
+}
 input[type='text']:focus {
   border-color: var(--accent);
 }

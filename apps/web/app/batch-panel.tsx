@@ -140,7 +140,7 @@ interface BatchDoneProps {
 /** 整批結果（成功數＋失敗列＋逐項重試）。 */
 export function BatchDoneView(p: BatchDoneProps) {
   return (
-    <>
+    <div className="done-block">
       <p>
         整批完成 {p.batchDone.succeeded}/{p.batchDone.total} 項
       </p>
@@ -160,6 +160,6 @@ export function BatchDoneView(p: BatchDoneProps) {
       <div className="row">
         <button onClick={p.onClear}>清除</button>
       </div>
-    </>
+    </div>
   );
 }

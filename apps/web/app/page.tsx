@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import {
   YtDlp,
   type BatchResult,
+  type CookieSiteStatus,
   type DownloadKind,
   type PlaylistResult,
   type QualityOption,
@@ -55,6 +56,12 @@ export default function Home() {
     percent: number;
   } | null>(null);
   const [batchDone, setBatchDone] = useState<BatchResult | null>(null);
+  // Cookie 登入（cookie-login/01）：三站狀態＋各站貼上框（不存 state 外）。
+  const [cookieSites, setCookieSites] = useState<CookieSiteStatus[] | null>(null);
+  const [cookieInputs, setCookieInputs] = useState<Record<string, string>>({});
+  const [cookieMsg, setCookieMsg] = useState('');
+  // 解析序號：連點時只有最後一次有權寫狀態（防晚到洗掉 downloading/done）。
+  const resolveSeq = useRef(0);
 
   // 進度走 event，不 polling；卸載時清 listener（見 gotchas）。
   // mounted 旗標防「卸載先於 addListener resolve」的殘留訂閱。
@@ -99,19 +106,91 @@ export default function Home() {
     };
   }, []);
 
+  // Cookie 狀態：掛載時讀一次，之後每次存取操作後重讀。
+  useEffect(() => {
+    let alive = true;
+    YtDlp.getCookieStatus()
+      .then((r) => {
+        if (alive) setCookieSites(r.sites);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function refreshCookieStatus() {
+    try {
+      const r = await YtDlp.getCookieStatus();
+      setCookieSites(r.sites);
+    } catch {
+      // 讀不到就保留舊畫面，不炸。
+    }
+  }
+
+  async function saveCookieSite(extractor: string) {
+    setCookieMsg('');
+    try {
+      const r = await YtDlp.saveCookie({
+        extractor,
+        text: cookieInputs[extractor] ?? '',
+      });
+      setCookieInputs((o) => {
+        const next = { ...o };
+        delete next[extractor];
+        return next;
+      });
+      setCookieMsg(`已設定（${r.domains} 個網域）`);
+      await refreshCookieStatus();
+    } catch (e) {
+      setCookieMsg(e instanceof Error ? e.message : '儲存失敗');
+    }
+  }
+
+  async function clearCookieSite(extractor: string) {
+    setCookieMsg('');
+    try {
+      await YtDlp.clearCookie({ extractor });
+      await refreshCookieStatus();
+    } catch (e) {
+      setCookieMsg(e instanceof Error ? e.message : '清除失敗');
+    }
+  }
+
+  async function toggleCookieSite(extractor: string, enabled: boolean) {
+    setCookieMsg('');
+    try {
+      await YtDlp.setCookieEnabled({ extractor, enabled });
+      await refreshCookieStatus();
+    } catch (e) {
+      setCookieMsg(e instanceof Error ? e.message : '切換失敗');
+    }
+  }
+
   const busy =
     ui.state === 'resolving' ||
     ui.state === 'downloading' ||
     (playlist !== null && batchProg !== null && batchDone === null);
 
-  // 結果（完成/失敗）落在選項清單下方：出現時捲到底；downloading 不捲，
-  // 避免 tap 確認期間 layout 跳動（automation 會等到 timeout）。
-  // CTA 本體是 sticky bottom bar，常駐可視區。
+  // 結果／進度落在選項清單下方時，把「該區塊」捲到可視區中央
+  // （不是捲到底——到底會把結果本身推出可視區，a11y 樹就看不到它）。
   useEffect(() => {
-    if (ui.state === 'done' || ui.state === 'error') {
-      window.scrollTo({ top: document.body.scrollHeight });
+    if (ui.state === 'downloading' || ui.state === 'done' || ui.state === 'error') {
+      const el = document.querySelector('.progress, .error, .done-block');
+      el?.scrollIntoView({ block: 'center' });
     }
   }, [ui.state]);
+
+  // 整批同理（狀態在 batchProg/batchDone，與 ui reducer 分開追）。
+  // 注意只追布林翻轉：percent 每段都變，直接追 batchProg 會每 tick 捲一次，
+  // 把取消按鈕捲跑（tap 座標 stale）。
+  const batchRunning = batchProg !== null && batchDone === null;
+  useEffect(() => {
+    if (batchRunning || batchDone !== null) {
+      const el = document.querySelector('.progress, .done-block');
+      el?.scrollIntoView({ block: 'center' });
+    }
+  }, [batchRunning, batchDone]);
   // null = 還沒解析；空陣列 = 解析過但無可用畫質（照樣顯示標題與狀態）
   const resolved = options !== null;
 
@@ -129,15 +208,20 @@ export default function Home() {
   }
 
   async function singleResolve(urlArg: string, kindArg: DownloadKind) {
+    // 連點/重試疊加時，只有最後一次解析有權寫狀態，晚到的直接丟掉
+    //（否則會把 downloading/done 洗回 idle，檔案下了但 UI 永遠等不到）。
+    const my = ++resolveSeq.current;
     dispatch({ type: 'start' });
     try {
       const r = await YtDlp.resolve({ url: urlArg, kind: kindArg });
+      if (my !== resolveSeq.current) return;
       setTitle(r.title);
       setOptions(r.options);
       setPicked(0);
       // 回到 idle 等選畫質：用 reset 後保留 url 輸入（state 機不管選單）
       dispatch({ type: 'reset' });
     } catch (e) {
+      if (my !== resolveSeq.current) return;
       const code = (e as { code?: string })?.code;
       const message = e instanceof Error ? e.message : 'UNKNOWN';
       dispatch({ type: 'error', error: code ? `${code}：${message}` : message });
@@ -146,9 +230,11 @@ export default function Home() {
 
   /** 清單掃描：flat 條目→批次設定畫面（還沒下載，不耗流量）。 */
   async function resolvePlaylist() {
+    const my = ++resolveSeq.current;
     dispatch({ type: 'start' });
     try {
       const r = await YtDlp.resolvePlaylist({ url });
+      if (my !== resolveSeq.current) return;
       setPlaylist(r);
       setOptions(null);
       setTitle('');
@@ -159,6 +245,7 @@ export default function Home() {
       setBatchDone(null);
       dispatch({ type: 'reset' });
     } catch (e) {
+      if (my !== resolveSeq.current) return;
       const code = (e as { code?: string })?.code;
       const message = e instanceof Error ? e.message : 'UNKNOWN';
       dispatch({ type: 'error', error: code ? `${code}：${message}` : message });
@@ -330,11 +417,56 @@ export default function Home() {
       )}
       {ui.state === 'error' && <p className="error">失敗：{errText(ui.error)}</p>}
       {ui.state === 'done' && (
-        <>
+        <div className="done-block">
           <p>{merged ? '完成' : kind === 'audio' ? '完成（未轉檔）' : '完成（未合併）'}：{ui.fileName}{!merged && doneCode ? `（${doneCode}）` : ''}</p>
           <button onClick={() => YtDlp.openFile({ uri: ui.fileUri })}>開啟</button>
-        </>
+        </div>
       )}
+      <h2>Cookie 登入</h2>
+      <p>從瀏覽器匯出 cookies.txt 貼上，登入牆內容才能抓。各站獨立開關。</p>
+      {(cookieSites ?? []).map((site) => (
+        <div key={site.extractor} style={{ marginBottom: 12 }}>
+          <div className="row">
+            <span style={{ flex: 1 }}>
+              {site.displayName}：
+              {site.has ? `已設定（${site.domains} 個網域）` : '未設定'}
+            </span>
+            <button
+              onClick={() => toggleCookieSite(site.extractor, !site.enabled)}
+              disabled={!site.has || busy}
+              aria-pressed={site.enabled}
+            >
+              {site.enabled ? '停用' : '啟用'}
+            </button>
+          </div>
+          <textarea
+            aria-label={`${site.displayName} cookies`}
+            placeholder="貼上 cookies.txt 全文"
+            rows={3}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            value={cookieInputs[site.extractor] ?? ''}
+            disabled={busy}
+            onChange={(e) =>
+              setCookieInputs((o) => ({ ...o, [site.extractor]: e.target.value }))
+            }
+            style={{ width: '100%' }}
+          />
+          <div className="row">
+            <button onClick={() => saveCookieSite(site.extractor)} disabled={busy}>
+              儲存
+            </button>
+            <button
+              onClick={() => clearCookieSite(site.extractor)}
+              disabled={!site.has || busy}
+            >
+              清除
+            </button>
+          </div>
+        </div>
+      ))}
+      {cookieMsg !== '' && <p>{cookieMsg}</p>}
     </main>
   );
 }

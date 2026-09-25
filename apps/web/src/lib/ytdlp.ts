@@ -64,6 +64,14 @@ export interface BatchResult {
 /** 整批畫質梯（UI 選單＋逐項覆寫共用；下載時映射為 maxHeight 政策）。 */
 export const BATCH_HEIGHTS = [144, 240, 360, 480, 720, 1080] as const;
 
+export interface CookieSiteStatus {
+  extractor: string;
+  displayName: string;
+  has: boolean;
+  enabled: boolean;
+  domains: number;
+}
+
 export interface YtDlpPlugin {
   download(options: {
     url: string;
@@ -82,6 +90,10 @@ export interface YtDlpPlugin {
     /** JSON 字串（bridge 只收字串；呼叫方先 JSON.stringify）。 */
     overrides: string;
   }): Promise<BatchResult>;
+  saveCookie(options: { extractor: string; text: string }): Promise<{ domains: number }>;
+  clearCookie(options: { extractor: string }): Promise<void>;
+  setCookieEnabled(options: { extractor: string; enabled: boolean }): Promise<void>;
+  getCookieStatus(): Promise<{ sites: CookieSiteStatus[] }>;
   openFile(options: { uri: string }): Promise<void>;
   addListener(
     eventName: 'progress',
@@ -145,6 +157,20 @@ const MockYtdlp = {
   },
   async downloadBatch() {
     return { succeeded: 0, total: 0, failed: [] };
+  },
+  async saveCookie() {
+    return { domains: 1 };
+  },
+  async clearCookie() {},
+  async setCookieEnabled() {},
+  async getCookieStatus() {
+    return {
+      sites: [
+        { extractor: 'youtube', displayName: 'YouTube', has: false, enabled: true, domains: 0 },
+        { extractor: 'bilibili', displayName: 'Bilibili', has: false, enabled: true, domains: 0 },
+        { extractor: 'twitter', displayName: 'X', has: false, enabled: true, domains: 0 },
+      ],
+    };
   },
   async openFile() {},
   addListener(_event: string, cb: (e: ProgressEvent) => void) {

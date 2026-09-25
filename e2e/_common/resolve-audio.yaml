@@ -10,6 +10,3 @@ appId: com.openmedia.downloader
 - waitForAnimationToEnd:
     timeout: 10000
 - tapOn: 解析
-- tapOn:
-    text: 解析
-    optional: true
