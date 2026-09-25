@@ -9,6 +9,11 @@ API="$1"
 FILTER="${2:-}"
 RUN_E2E="${3:-false}"
 
+# 整輪佔住模擬器：有人（本地調試）先佔就直接失敗，不硬跑互踩。
+OWNER="ci-${GITHUB_RUN_ID:-manual}"
+bash "$(dirname "$0")/emu-lock.sh" acquire "$OWNER" || exit 1
+trap 'bash "$(dirname "$0")/emu-lock.sh" release "$OWNER"' EXIT
+
 have_ct=0
 have_et=0
 
