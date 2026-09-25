@@ -63,7 +63,9 @@ jobs:
           mkdir -p "$SDK/cmdline-tools"
           curl -fsSL -o /tmp/cmdtools.zip \
             https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip
-          unzip -q /tmp/cmdtools.zip -d "$SDK/cmdline-tools"
+          # -o：持久目錄已有舊檔時直接覆寫，否則 unzip 停下來問 y/n（無 stdin 即炸）。
+          unzip -q -o /tmp/cmdtools.zip -d "$SDK/cmdline-tools"
+          rm -rf "$SDK/cmdline-tools/latest"
           mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
