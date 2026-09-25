@@ -18,8 +18,8 @@ public class ResolveEngineTest {
     public void resolveRealVideo() throws Exception {
         Context ctx = ApplicationProvider.getApplicationContext();
         ResolveResult r = ResolveEngine.resolve(
-                ctx, "https://www.youtube.com/watch?v=aqz-KE-bpKQ");
-        assertTrue("應有標題", r.title.contains("Big Buck Bunny"));
+                ctx, "https://www.youtube.com/shorts/tE0usg6bjJQ");
+        assertTrue("應有標題", r.title.contains("test video"));
         assertTrue("應有可播格式", r.hasPlayableVideo());
     }
 

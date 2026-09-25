@@ -1,6 +1,6 @@
-# YouTube→mp3 全環：切音檔 → 貼 YouTube 連結 → 解析 → 下載（bestaudio＋轉 mp3）→ 完成
+# YouTube→mp3 全環：貼 Shorts 連結 → 解析 → 下載音檔（bestaudio＋轉 mp3）→ 完成
 # 前提：YtDlpEngine wheel overlay（否則 YouTube 直連 403）
-# 音檔模式無畫質清單，不需選項不斷言大小（檔名由轉檔決定，flow 只認完成＋e2e.sh 認檔）。
+# 音檔走 bestaudio 不用選畫質（檔名由轉檔決定，flow 只認完成＋e2e.sh 認檔）。
 appId: com.openmedia.downloader
 ---
 - runFlow:
@@ -8,11 +8,11 @@ appId: com.openmedia.downloader
 - runFlow:
     file: ./_common/resolve-audio.yaml
     env:
-      URL: "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
+      URL: "https://www.youtube.com/shorts/tE0usg6bjJQ"
 - extendedWaitUntil:
-    visible: "Big Buck Bunny.*"
+    visible: "test video"
     timeout: 120000
-- tapOn: 下載
+- tapOn: 下載音檔
 - extendedWaitUntil:
     visible: "完成.*"
     timeout: 300000

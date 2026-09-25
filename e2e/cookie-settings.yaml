@@ -1,0 +1,30 @@
+# Cookie 設定：拒絕壞輸入（ticket cookie-login/01）。
+# Maestro inputText 送不進換行/tab（會被吃掉），所以貼「真檔」走不通；
+# 存檔路徑由單測（校驗）＋connected（加密存取）覆蓋。
+# 這裡斷言使用者視角最重要的安全行為：亂貼東西會被擋下並說明，不會靜默存壞東西。
+appId: com.openmedia.downloader
+---
+- runFlow:
+    file: ./_common/launch.yaml
+- extendedWaitUntil:
+    visible: "Cookie 登入"
+    timeout: 60000
+# 設定區在頁底（fold 下節點不在 a11y 樹）：先捲到站名再點輸入框。
+# 輸入框用 aria-label 定位（placeholder 三站共用，text 定位會撞）。
+- scrollUntilVisible:
+    element: "YouTube"
+    timeout: 30000
+    direction: DOWN
+- tapOn: "YouTube cookies"
+- inputText: "hello world"
+- hideKeyboard
+- tapOn:
+    text: "儲存"
+    index: 0
+# 訊息 <p> 在三站區塊最底下（fold 下會被 a11y 剪掉）：先往上滑一段再斷言。
+- swipe:
+    direction: UP
+    duration: 500
+- extendedWaitUntil:
+    visible: "不是 cookies.txt 格式"
+    timeout: 30000

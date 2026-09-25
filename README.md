@@ -90,8 +90,11 @@
   見 `.scratch/archive/multi-site-download-v1/issues/07-x-bilibili-acceptance.md`）。
 - **通知列進度約 3 秒早退**：下載本身靠 worker 續命不受影響；背景長批次有被回收風險。
 - **e2e 有外部脆弱點**：SoundHelix 限速、YouTube 格式浮動、測試清單刪片——這類紅是驗收報警，不是 bug。
-- **功能邊界**：不做登入／DRM／私享片；無分享、無內建播放器、無斷點續傳；
-  逐項調整是「每項選高度上限」；minSdk 29、64-bit only；APK 約 94MB。
+- **功能邊界**：不做帳密登入／App 內登入頁／DRM／私享片；無分享、無內建播放器、
+  無斷點續傳；逐項調整是「每項選高度上限」；minSdk 29、64-bit only；APK 約 94MB。
+- **Cookie 登入（三站）**：設定區貼桌機 `cookies.txt`（YouTube／Bilibili／X 各站開關，
+  加密存、備份排除），登入牆／會員／高画質可抓；過期提示重貼。真登入牆素材未經
+  live 驗收（以單測＋假 cookie 不炸正常路為驗收）。
 
 ## 快速開始
 

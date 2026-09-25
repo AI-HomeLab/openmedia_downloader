@@ -32,4 +32,29 @@ public class WrapFailureTest {
         assertEquals("解析失敗", e.getMessage());
         assertEquals(DownloadError.UNKNOWN, e.getCode());
     }
+
+    @Test
+    public void expiredCookieRewritesMessage() {
+        ResolveException e = ResolveEngine.withExpiryNote(
+                new RuntimeException("ERROR: [youtube] x: Login required"), true);
+        assertEquals(DownloadError.EXTRACT, e.getCode());
+        assertEquals("登入已過期，請重新貼上 cookie", e.getMessage());
+        ResolveException cn = ResolveEngine.withExpiryNote(
+                new RuntimeException("ERROR: [BiliBili] x: 需要登录后观看"), true);
+        assertEquals("登入已過期，請重新貼上 cookie", cn.getMessage());
+    }
+
+    @Test
+    public void noCookieSentKeepsOriginal() {
+        ResolveException e = ResolveEngine.withExpiryNote(
+                new RuntimeException("ERROR: [youtube] x: Login required"), false);
+        assertTrue(e.getMessage().contains("Login required"));
+    }
+
+    @Test
+    public void nonLoginErrorUntouched() {
+        ResolveException e = ResolveEngine.withExpiryNote(
+                new RuntimeException("ERROR: [youtube] x: Video unavailable"), true);
+        assertTrue(e.getMessage().contains("Video unavailable"));
+    }
 }

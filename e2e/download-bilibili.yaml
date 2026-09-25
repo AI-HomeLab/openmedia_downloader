@@ -1,4 +1,4 @@
-# Bilibili 單片全環：解析 → 選 480p（DASH 分離式，自動合併）→ 下載 → 完成
+# Bilibili 單片全環：解析 → 選 480p（分離式，自動合併）→ 下載 → 完成
 # B 站要影片頁完整 Referer＋桌面 UA＋identity（見 ChunkedFetcher），缺一就 403。
 appId: com.openmedia.downloader
 ---
@@ -7,12 +7,13 @@ appId: com.openmedia.downloader
 - runFlow:
     file: ./_common/resolve-video.yaml
     env:
-      URL: "https://www.bilibili.com/video/BV1hy4y1D734"
+      URL: "https://b23.tv/EQzrzUu"
 - extendedWaitUntil:
-    visible: "不同类型.*"
+    visible: "Bilibili test video"
     timeout: 120000
-- tapOn: "480p mp4・2.1 MB"
-- tapOn: 下載
+# 檔名大小會浮動只認前綴（見 merge 流註記）。
+- tapOn: "480p mp4.*"
+- tapOn: 下載影片
 - extendedWaitUntil:
     visible: "完成.*"
     timeout: 300000

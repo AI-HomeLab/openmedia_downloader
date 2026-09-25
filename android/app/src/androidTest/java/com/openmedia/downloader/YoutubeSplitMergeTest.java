@@ -25,9 +25,9 @@ import java.io.File;
  */
 @RunWith(AndroidJUnit4.class)
 public class YoutubeSplitMergeTest {
-    // Blender 基金會 Big Buck Bunny，格式多、保證有 DASH 分離式。
+    // 自家 Shorts（3 秒）：有 DASH 分離式，取最小的無聲 mp4 驗合併。
     private static final String VIDEO =
-            "https://www.youtube.com/watch?v=aqz-KE-bpKQ";
+            "https://www.youtube.com/shorts/tE0usg6bjJQ";
 
     @Test
     public void youtubeSplitFetchAndMerge() throws Exception {

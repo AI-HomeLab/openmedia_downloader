@@ -12,8 +12,3 @@ appId: com.openmedia.downloader
 - waitForAnimationToEnd:
     timeout: 10000
 - tapOn: 解析
-# API 29 WebView 第一 tap 只聚焦不觸發，第二 tap 才點到；35 是一次就中，
-# 第二 tap 找不到按鈕屬正常，用 optional 跳過。
-- tapOn:
-    text: 解析
-    optional: true

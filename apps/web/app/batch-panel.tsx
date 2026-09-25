@@ -1,9 +1,8 @@
 'use client';
 
 import {
-  BATCH_HEIGHTS,
+  type BatchChoice,
   type BatchResult,
-  type DownloadKind,
   type PlaylistResult,
 } from '../src/lib/ytdlp';
 
@@ -25,18 +24,20 @@ export interface BatchProgress {
 
 interface BatchPanelProps {
   playlist: PlaylistResult;
-  batchKind: DownloadKind;
-  setBatchKind: (k: DownloadKind) => void;
-  batchMax: number;
-  setBatchMax: (h: number) => void;
-  overrides: Record<string, number>;
-  setOverrides: (f: (o: Record<string, number>) => Record<string, number>) => void;
+  batchChoice: BatchChoice;
+  setBatchChoice: (c: BatchChoice) => void;
   busy: boolean;
   onStartBatch: () => void;
   onExitAndReset: () => void;
 }
 
-/** 整批設定畫面（ticket 12 由 page.tsx 純搬移）：掃描結果＋mp4/mp3＋政策＋逐項覆寫。 */
+const CHOICES: { value: BatchChoice; label: string }[] = [
+  { value: 'best', label: '下載全部影片（最高品質）' },
+  { value: 'capped1080', label: '下載全部影片（最高 1080p）' },
+  { value: 'audio', label: '下載全部音檔（最高音質）' },
+];
+
+/** 整批設定畫面：掃描結果＋三選項（逐項覆寫已拔掉，簡單即正義）。 */
 export function BatchConfig(p: BatchPanelProps) {
   const { playlist } = p;
   return (
@@ -45,66 +46,23 @@ export function BatchConfig(p: BatchPanelProps) {
         {playlist.title}（共 {playlist.items.length} 項
         {playlist.totalDurationSec > 0 ? `・${fmtDur(playlist.totalDurationSec)}` : ''}）
       </p>
-      <div className="row">
-        <button
-          onClick={() => p.setBatchKind('video')}
-          disabled={p.busy}
-          aria-pressed={p.batchKind === 'video'}
-        >
-          mp4 影片
-        </button>
-        <button
-          onClick={() => p.setBatchKind('audio')}
-          disabled={p.busy}
-          aria-pressed={p.batchKind === 'audio'}
-        >
-          mp3 音檔
-        </button>
-        {p.batchKind === 'video' && (
-          <label>
-            預設畫質
-            <select
-              value={p.batchMax}
-              disabled={p.busy}
-              onChange={(e) => p.setBatchMax(Number(e.target.value))}
-            >
-              {BATCH_HEIGHTS.map((h) => (
-                <option key={h} value={h}>
-                  {h}p（或更低）
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </div>
+      {CHOICES.map((c) => (
+        <label key={c.value} style={{ display: 'block', minHeight: 44 }}>
+          <input
+            type="radio"
+            name="batchChoice"
+            checked={p.batchChoice === c.value}
+            disabled={p.busy}
+            onChange={() => p.setBatchChoice(c.value)}
+          />
+          {c.label}
+        </label>
+      ))}
       {playlist.items.map((item) => (
         <div key={item.videoId} style={{ display: 'flex', gap: 8, minHeight: 44 }}>
           <span style={{ flex: 1 }}>
             {item.title}・{fmtDur(item.durationSec)}
           </span>
-          {p.batchKind === 'video' && (
-            <select
-              aria-label={`${item.title}畫質`}
-              value={p.overrides[item.videoId] ?? -1}
-              disabled={p.busy}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                p.setOverrides((o) => {
-                  const next = { ...o };
-                  if (v < 0) delete next[item.videoId];
-                  else next[item.videoId] = v;
-                  return next;
-                });
-              }}
-            >
-              <option value={-1}>預設</option>
-              {BATCH_HEIGHTS.map((h) => (
-                <option key={h} value={h}>
-                  {h}p
-                </option>
-              ))}
-            </select>
-          )}
         </div>
       ))}
       <div className="row cta">
@@ -140,7 +98,7 @@ interface BatchDoneProps {
 /** 整批結果（成功數＋失敗列＋逐項重試）。 */
 export function BatchDoneView(p: BatchDoneProps) {
   return (
-    <>
+    <div className="done-block">
       <p>
         整批完成 {p.batchDone.succeeded}/{p.batchDone.total} 項
       </p>
@@ -160,6 +118,6 @@ export function BatchDoneView(p: BatchDoneProps) {
       <div className="row">
         <button onClick={p.onClear}>清除</button>
       </div>
-    </>
+    </div>
   );
 }

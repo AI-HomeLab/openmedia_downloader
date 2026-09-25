@@ -30,6 +30,8 @@
   - UI `errText` 把 EXTRACT＋登入關鍵字翻成「需登入、目前不支援」。
   - 誠實註記：真實登入牆內容（大會員工付費片）無穩定素材，未做 live 實測；
     以 mapper 單測＋UI 文案＋刪除推文 live 測試為驗收。
+  - 後續：cookie-login 三站手動貼 cookie 上線（見 `.scratch/cookie-login/`），
+    有 cookie 時登入牆可抓；本 ticket 的「不支援」文案保留給無 cookie 情境。
 - [x] 驗收記裝置型號 / API level / library 版本
   - `ThirdPartyAcceptanceTest`（常駐 connected）：29/33/35 全綠；
     API 矩陣見 08。

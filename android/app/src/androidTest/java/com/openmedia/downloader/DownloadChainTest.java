@@ -24,7 +24,7 @@ public class DownloadChainTest {
     private static final String DIRECT_MP4 =
             "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4";
     private static final String YOUTUBE_VIDEO =
-            "https://www.youtube.com/watch?v=aqz-KE-bpKQ";
+            "https://www.youtube.com/shorts/tE0usg6bjJQ";
 
     @Test
     public void initOnceAndDownloadTinyFile() throws Exception {

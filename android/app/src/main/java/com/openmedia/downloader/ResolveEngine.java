@@ -5,6 +5,8 @@ import android.os.Looper;
 import com.chaquo.python.PyObject;
 import com.chaquo.python.Python;
 
+import java.io.File;
+
 /**
  * 結構化 resolve：直連 AAR 內建的 yt_dlp Python 模組做 extract_info，
  * 不經 YtDlp.execute（它只回 exit code 且吞掉 dump 參數）。
@@ -63,20 +65,33 @@ public final class ResolveEngine {
             opts.callAttr("__setitem__", "noplaylist", true);
             // 行動網路＋CI 模擬器常超過 15 秒，30 秒才算超時（ticket 03 CI 實測）。
             opts.callAttr("__setitem__", "socket_timeout", 30);
-            PyObject ydl = ytDlp.callAttr("YoutubeDL", opts);
-            PyObject info = ydl.callAttr("extract_info", url, false);
-            if (info == null) {
-                throw new ResolveException(DownloadError.EXTRACT, "解析無回傳");
+            // cookie 登入（cookie-login/02）：有可用 cookie 就帶上，用完即刪暫存。
+            File cookieFile = prepareCookies(context, url);
+            try {
+                if (cookieFile != null) {
+                    opts.callAttr("__setitem__", "cookiefile", cookieFile.getAbsolutePath());
+                }
+                PyObject ydl = ytDlp.callAttr("YoutubeDL", opts);
+                PyObject info = ydl.callAttr("extract_info", url, false);
+                if (info == null) {
+                    throw new ResolveException(DownloadError.EXTRACT, "解析無回傳");
+                }
+                PyObject json = py.getModule("json");
+                String dumped = json.callAttr("dumps", info).toJava(String.class);
+                ResolveResult result = ResolveResult.parse(dumped);
+                if (result.title.isEmpty()
+                        || (requireVideo && !result.hasPlayableVideo())) {
+                    throw new ResolveException(DownloadError.EXTRACT,
+                            requireVideo ? "找不到可下載的影片格式" : "找不到可下載的音檔");
+                }
+                return result;
+            } catch (ResolveException e) {
+                throw e;
+            } catch (Exception e) {
+                throw withExpiryNote(e, cookieFile != null);
+            } finally {
+                CookieFiles.dispose(cookieFile);
             }
-            PyObject json = py.getModule("json");
-            String dumped = json.callAttr("dumps", info).toJava(String.class);
-            ResolveResult result = ResolveResult.parse(dumped);
-            if (result.title.isEmpty()
-                    || (requireVideo && !result.hasPlayableVideo())) {
-                throw new ResolveException(DownloadError.EXTRACT,
-                        requireVideo ? "找不到可下載的影片格式" : "找不到可下載的音檔");
-            }
-            return result;
         } catch (ResolveException e) {
             throw e;
         } catch (Exception e) {
@@ -84,6 +99,41 @@ public final class ResolveEngine {
             android.util.Log.w("ResolveEngine", "resolve 失敗: " + e);
             throw wrapFailure(e);
         }
+    }
+
+    /**
+     * 取 cookie 暫存檔。沒存／關掉／站外回 null（公開路照走）；
+     * 儲存層壞掉則 STORAGE 原碼穿透（六碼一致；雖罕見但要大聲，不要靜默降級
+     * 讓用戶以為有登入）。
+     */
+    static File prepareCookies(android.content.Context context, String url)
+            throws ResolveException {
+        try {
+            return CookieFiles.prepare(context, CookieStore.extractorForUrl(url));
+        } catch (DownloadException e) {
+            throw new ResolveException(e.getCode(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 有帶 cookie 還撞上登入牆＝cookie 死了：文案改成重貼指引（ticket 02）。
+     * 純函式，可單測（內含 CJK 關鍵字比對，注意 Java \b 吃不到中文字，
+     * 中文走 contains）。
+     */
+    static ResolveException withExpiryNote(Exception e, boolean cookieSent) {
+        String msg = e.getMessage() == null ? "" : e.getMessage();
+        String low = msg.toLowerCase(java.util.Locale.US);
+        boolean loginish = low.matches(
+                "(?s).*\\b(login|log in|sign in|cookies?|auth|members?|premium|401|403|forbidden)\\b.*")
+                || low.contains("登入") || low.contains("登录")
+                || low.contains("會員") || low.contains("会员")
+                || low.contains("付費") || low.contains("付费");
+        if (cookieSent && loginish
+                && ErrorMapper.fromMessage(e.getMessage()) == DownloadError.EXTRACT) {
+            return new ResolveException(DownloadError.EXTRACT,
+                    "登入已過期，請重新貼上 cookie", e);
+        }
+        return wrapFailure(e);
     }
 
     /**
@@ -108,17 +158,30 @@ public final class ResolveEngine {
             opts.callAttr("__setitem__", "noplaylist", false);
             opts.callAttr("__setitem__", "extract_flat", true);
             opts.callAttr("__setitem__", "socket_timeout", 30);
-            PyObject ydl = ytDlp.callAttr("YoutubeDL", opts);
-            PyObject info = ydl.callAttr("extract_info", url, false);
-            if (info == null) {
-                throw new ResolveException(DownloadError.EXTRACT, "解析無回傳");
+            // 清單掃描也帶 cookie（私享清單要登入才列得出來；同 02）。
+            File cookieFile = prepareCookies(context, url);
+            try {
+                if (cookieFile != null) {
+                    opts.callAttr("__setitem__", "cookiefile", cookieFile.getAbsolutePath());
+                }
+                PyObject ydl = ytDlp.callAttr("YoutubeDL", opts);
+                PyObject info = ydl.callAttr("extract_info", url, false);
+                if (info == null) {
+                    throw new ResolveException(DownloadError.EXTRACT, "解析無回傳");
+                }
+                PyObject json = py.getModule("json");
+                String dumped = json.callAttr("dumps", info).toJava(String.class);
+                if (!PlaylistResult.isPlaylistJson(dumped)) {
+                    throw new ResolveException(DownloadError.EXTRACT, "這不是播放清單");
+                }
+                return PlaylistResult.parse(dumped);
+            } catch (ResolveException e) {
+                throw e;
+            } catch (Exception e) {
+                throw withExpiryNote(e, cookieFile != null);
+            } finally {
+                CookieFiles.dispose(cookieFile);
             }
-            PyObject json = py.getModule("json");
-            String dumped = json.callAttr("dumps", info).toJava(String.class);
-            if (!PlaylistResult.isPlaylistJson(dumped)) {
-                throw new ResolveException(DownloadError.EXTRACT, "這不是播放清單");
-            }
-            return PlaylistResult.parse(dumped);
         } catch (ResolveException e) {
             throw e;
         } catch (Exception e) {

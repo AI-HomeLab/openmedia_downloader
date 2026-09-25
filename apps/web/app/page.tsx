@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import {
   YtDlp,
+  type BatchChoice,
   type BatchResult,
+  type CookieSiteStatus,
   type DownloadKind,
   type PlaylistResult,
   type QualityOption,
@@ -36,18 +38,18 @@ function errText(uiError: string): string {
 
 export default function Home() {
   const [url, setUrl] = useState('');
-  const [kind, setKind] = useState<DownloadKind>('video');
+  // 單片統一解析：一次解析拿影片畫質清單，音檔走 bestaudio（免切換）。
+  // 下載時才選邊：startedKind 記住這次按的是哪顆鈕（重試／完成文案用）。
+  const startedKind = useRef<DownloadKind>('video');
   const [ui, dispatch] = useReducer(reducer, initialUiState);
   const [title, setTitle] = useState('');
   const [options, setOptions] = useState<QualityOption[] | null>(null);
   const [picked, setPicked] = useState(0);
   const [merged, setMerged] = useState(true);
   const [doneCode, setDoneCode] = useState('');
-  // 整批（ticket 06）：playlist 掃描結果＋設定＋進度＋結果；null＝單片模式。
+  // 整批（ticket 06，三選項）：playlist 掃描結果＋選擇＋進度＋結果；null＝單片模式。
   const [playlist, setPlaylist] = useState<PlaylistResult | null>(null);
-  const [batchKind, setBatchKind] = useState<DownloadKind>('video');
-  const [batchMax, setBatchMax] = useState<number>(1080);
-  const [overrides, setOverrides] = useState<Record<string, number>>({});
+  const [batchChoice, setBatchChoice] = useState<BatchChoice>('capped1080');
   const [batchProg, setBatchProg] = useState<{
     index: number;
     total: number;
@@ -55,6 +57,12 @@ export default function Home() {
     percent: number;
   } | null>(null);
   const [batchDone, setBatchDone] = useState<BatchResult | null>(null);
+  // Cookie 登入（cookie-login/01）：三站狀態＋各站貼上框（不存 state 外）。
+  const [cookieSites, setCookieSites] = useState<CookieSiteStatus[] | null>(null);
+  const [cookieInputs, setCookieInputs] = useState<Record<string, string>>({});
+  const [cookieMsg, setCookieMsg] = useState('');
+  // 解析序號：連點時只有最後一次有權寫狀態（防晚到洗掉 downloading/done）。
+  const resolveSeq = useRef(0);
 
   // 進度走 event，不 polling；卸載時清 listener（見 gotchas）。
   // mounted 旗標防「卸載先於 addListener resolve」的殘留訂閱。
@@ -99,19 +107,91 @@ export default function Home() {
     };
   }, []);
 
+  // Cookie 狀態：掛載時讀一次，之後每次存取操作後重讀。
+  useEffect(() => {
+    let alive = true;
+    YtDlp.getCookieStatus()
+      .then((r) => {
+        if (alive) setCookieSites(r.sites);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function refreshCookieStatus() {
+    try {
+      const r = await YtDlp.getCookieStatus();
+      setCookieSites(r.sites);
+    } catch {
+      // 讀不到就保留舊畫面，不炸。
+    }
+  }
+
+  async function saveCookieSite(extractor: string) {
+    setCookieMsg('');
+    try {
+      const r = await YtDlp.saveCookie({
+        extractor,
+        text: cookieInputs[extractor] ?? '',
+      });
+      setCookieInputs((o) => {
+        const next = { ...o };
+        delete next[extractor];
+        return next;
+      });
+      setCookieMsg(`已設定（${r.domains} 個網域）`);
+      await refreshCookieStatus();
+    } catch (e) {
+      setCookieMsg(e instanceof Error ? e.message : '儲存失敗');
+    }
+  }
+
+  async function clearCookieSite(extractor: string) {
+    setCookieMsg('');
+    try {
+      await YtDlp.clearCookie({ extractor });
+      await refreshCookieStatus();
+    } catch (e) {
+      setCookieMsg(e instanceof Error ? e.message : '清除失敗');
+    }
+  }
+
+  async function toggleCookieSite(extractor: string, enabled: boolean) {
+    setCookieMsg('');
+    try {
+      await YtDlp.setCookieEnabled({ extractor, enabled });
+      await refreshCookieStatus();
+    } catch (e) {
+      setCookieMsg(e instanceof Error ? e.message : '切換失敗');
+    }
+  }
+
   const busy =
     ui.state === 'resolving' ||
     ui.state === 'downloading' ||
     (playlist !== null && batchProg !== null && batchDone === null);
 
-  // 結果（完成/失敗）落在選項清單下方：出現時捲到底；downloading 不捲，
-  // 避免 tap 確認期間 layout 跳動（automation 會等到 timeout）。
-  // CTA 本體是 sticky bottom bar，常駐可視區。
+  // 結果／進度落在選項清單下方時，把「該區塊」捲到可視區中央
+  // （不是捲到底——到底會把結果本身推出可視區，a11y 樹就看不到它）。
   useEffect(() => {
-    if (ui.state === 'done' || ui.state === 'error') {
-      window.scrollTo({ top: document.body.scrollHeight });
+    if (ui.state === 'downloading' || ui.state === 'done' || ui.state === 'error') {
+      const el = document.querySelector('.progress, .error, .done-block');
+      el?.scrollIntoView({ block: 'center' });
     }
   }, [ui.state]);
+
+  // 整批同理（狀態在 batchProg/batchDone，與 ui reducer 分開追）。
+  // 注意只追布林翻轉：percent 每段都變，直接追 batchProg 會每 tick 捲一次，
+  // 把取消按鈕捲跑（tap 座標 stale）。
+  const batchRunning = batchProg !== null && batchDone === null;
+  useEffect(() => {
+    if (batchRunning || batchDone !== null) {
+      const el = document.querySelector('.progress, .done-block');
+      el?.scrollIntoView({ block: 'center' });
+    }
+  }, [batchRunning, batchDone]);
   // null = 還沒解析；空陣列 = 解析過但無可用畫質（照樣顯示標題與狀態）
   const resolved = options !== null;
 
@@ -125,19 +205,26 @@ export default function Home() {
       await resolvePlaylist();
       return;
     }
-    await singleResolve(url, kind);
+    await singleResolve(url);
   }
 
-  async function singleResolve(urlArg: string, kindArg: DownloadKind) {
+  /** 單片解析固定走 audio 寬鬆校驗（直連 mp3 沒有 video 格式也要能進；
+   * 有畫質清單才是影片頁，UI 據此決定給哪些按鈕）。 */
+  async function singleResolve(urlArg: string) {
+    // 連點/重試疊加時，只有最後一次解析有權寫狀態，晚到的直接丟掉
+    //（否則會把 downloading/done 洗回 idle，檔案下了但 UI 永遠等不到）。
+    const my = ++resolveSeq.current;
     dispatch({ type: 'start' });
     try {
-      const r = await YtDlp.resolve({ url: urlArg, kind: kindArg });
+      const r = await YtDlp.resolve({ url: urlArg, kind: 'audio' });
+      if (my !== resolveSeq.current) return;
       setTitle(r.title);
       setOptions(r.options);
       setPicked(0);
       // 回到 idle 等選畫質：用 reset 後保留 url 輸入（state 機不管選單）
       dispatch({ type: 'reset' });
     } catch (e) {
+      if (my !== resolveSeq.current) return;
       const code = (e as { code?: string })?.code;
       const message = e instanceof Error ? e.message : 'UNKNOWN';
       dispatch({ type: 'error', error: code ? `${code}：${message}` : message });
@@ -146,37 +233,41 @@ export default function Home() {
 
   /** 清單掃描：flat 條目→批次設定畫面（還沒下載，不耗流量）。 */
   async function resolvePlaylist() {
+    const my = ++resolveSeq.current;
     dispatch({ type: 'start' });
     try {
       const r = await YtDlp.resolvePlaylist({ url });
+      if (my !== resolveSeq.current) return;
       setPlaylist(r);
       setOptions(null);
       setTitle('');
-      setBatchKind(kind);
-      setBatchMax(1080);
-      setOverrides({});
+      setBatchChoice('capped1080');
       setBatchProg(null);
       setBatchDone(null);
       dispatch({ type: 'reset' });
     } catch (e) {
+      if (my !== resolveSeq.current) return;
       const code = (e as { code?: string })?.code;
       const message = e instanceof Error ? e.message : 'UNKNOWN';
       dispatch({ type: 'error', error: code ? `${code}：${message}` : message });
     }
   }
 
-  /** 整批下載：政策（預設 1080p＋最佳音質）＋逐項覆寫一次送原生。 */
+  /** 整批下載：三選項映射為 kind＋maxHeight（逐項覆寫已拔掉，一律 "{}"）。 */
   async function startBatch() {
     if (playlist === null) return;
+    const kind: DownloadKind = batchChoice === 'audio' ? 'audio' : 'video';
+    // best＝不設上限（4320 實務上封頂）；capped1080 維持既有預設政策。
+    const maxHeight = batchChoice === 'best' ? 4320 : 1080;
     setBatchProg({ index: 0, total: playlist.items.length, itemTitle: '', percent: -1 });
     setBatchDone(null);
     try {
       const r = await YtDlp.downloadBatch({
         url,
-        kind: batchKind,
-        maxHeight: batchMax,
-        // bridge 只收字串：Record 在此序列化，原生 parseOverrides 解回。
-        overrides: JSON.stringify(overrides),
+        kind,
+        maxHeight,
+        // bridge 只收字串：原生 parseOverrides 解回（現 UI 不送覆寫，固定空物件）。
+        overrides: '{}',
       });
       setBatchProg(null);
       setBatchDone(r);
@@ -188,27 +279,26 @@ export default function Home() {
     }
   }
 
-  /** 失敗項重試：回到單片流程走完整 resolve→下載（既有路徑）。 */
+  /** 失敗項重試：回到單片流程走完整 resolve→下載（解析後手選影片／音檔）。 */
   async function retryItem(itemUrl: string) {
     exitBatch();
-    setKind(batchKind);
     setUrl(itemUrl);
-    await singleResolve(itemUrl, batchKind);
+    await singleResolve(itemUrl);
   }
 
   function exitBatch() {
     setPlaylist(null);
     setBatchProg(null);
     setBatchDone(null);
-    setOverrides({});
   }
 
-  async function start() {
+  async function start(kindArg: DownloadKind) {
+    startedKind.current = kindArg;
     dispatch({ type: 'start' });
     try {
       // 音檔模式不帶 formatIndex（走 bestaudio）；只有影片畫質清單才帶 index。
       const r = await YtDlp.download(
-        kind === 'audio' ? { url, kind } : { url, kind, formatIndex: picked },
+        kindArg === 'audio' ? { url, kind: kindArg } : { url, kind: kindArg, formatIndex: picked },
       );
       setMerged(r.merged);
       setDoneCode(r.code ?? '');
@@ -241,14 +331,6 @@ export default function Home() {
   return (
     <main>
       <h1>OpenMedia</h1>
-      <div className="row">
-        <button onClick={() => setKind('video')} disabled={busy} aria-pressed={kind === 'video'}>
-          影片
-        </button>
-        <button onClick={() => setKind('audio')} disabled={busy} aria-pressed={kind === 'audio'}>
-          音檔
-        </button>
-      </div>
       <input
         type="text"
         inputMode="url"
@@ -267,20 +349,26 @@ export default function Home() {
       {resolved && !busy && (
         <>
           <p>{title}</p>
-          {kind === 'video' &&
+          {(options ?? []).length > 0 ? (
             (options ?? []).map((o) => (
-            <label key={o.index} style={{ display: 'block', minHeight: 44 }}>
-              <input
-                type="radio"
-                name="quality"
-                checked={picked === o.index}
-                onChange={() => setPicked(o.index)}
-              />
-              {o.label}・{fmtSize(o.sizeBytes)}
-            </label>
-          ))}
+              <label key={o.index} style={{ display: 'block', minHeight: 44 }}>
+                <input
+                  type="radio"
+                  name="quality"
+                  checked={picked === o.index}
+                  onChange={() => setPicked(o.index)}
+                />
+                {o.label}・{fmtSize(o.sizeBytes)}
+              </label>
+            ))
+          ) : (
+            <p>此連結只有音檔</p>
+          )}
           <div className="row cta">
-            <button onClick={start}>下載</button>
+            {(options ?? []).length > 0 && (
+              <button onClick={() => start('video')}>下載影片</button>
+            )}
+            <button onClick={() => start('audio')}>下載音檔</button>
             <button onClick={resetAll}>重選</button>
           </div>
         </>
@@ -288,12 +376,8 @@ export default function Home() {
       {playlist !== null && batchProg === null && batchDone === null && (
         <BatchConfig
           playlist={playlist}
-          batchKind={batchKind}
-          setBatchKind={setBatchKind}
-          batchMax={batchMax}
-          setBatchMax={setBatchMax}
-          overrides={overrides}
-          setOverrides={setOverrides}
+          batchChoice={batchChoice}
+          setBatchChoice={setBatchChoice}
           busy={busy}
           onStartBatch={startBatch}
           onExitAndReset={() => { exitBatch(); resetAll(); }}
@@ -312,7 +396,7 @@ export default function Home() {
         {busy && <button onClick={cancel}>取消</button>}
         {(ui.state === 'error' || ui.state === 'done' || ui.state === 'cancelled') && (
           <>
-            <button onClick={resolved ? start : resolve}>重試</button>
+            <button onClick={resolved ? () => start(startedKind.current) : resolve}>重試</button>
             <button onClick={resetAll}>清除</button>
           </>
         )}
@@ -330,11 +414,76 @@ export default function Home() {
       )}
       {ui.state === 'error' && <p className="error">失敗：{errText(ui.error)}</p>}
       {ui.state === 'done' && (
-        <>
-          <p>{merged ? '完成' : kind === 'audio' ? '完成（未轉檔）' : '完成（未合併）'}：{ui.fileName}{!merged && doneCode ? `（${doneCode}）` : ''}</p>
+        <div className="done-block">
+          <p>{merged ? '完成' : startedKind.current === 'audio' ? '完成（未轉檔）' : '完成（未合併）'}：{ui.fileName}{!merged && doneCode ? `（${doneCode}）` : ''}</p>
           <button onClick={() => YtDlp.openFile({ uri: ui.fileUri })}>開啟</button>
-        </>
+        </div>
       )}
+      <h2>Cookie 登入</h2>
+      <p>從瀏覽器匯出 cookies.txt 貼上，登入牆內容才能抓。各站獨立開關。</p>
+      <div className="row">
+        <button
+          onClick={async () => {
+            setCookieMsg('');
+            for (const site of cookieSites ?? []) {
+              try {
+                await YtDlp.clearCookie({ extractor: site.extractor });
+              } catch {
+                // 單站失敗不擋其他站。
+              }
+            }
+            setCookieInputs({});
+            await refreshCookieStatus();
+            setCookieMsg('已全部清除');
+          }}
+          disabled={busy}
+        >
+          全部清除
+        </button>
+      </div>
+      {(cookieSites ?? []).map((site) => (
+        <div key={site.extractor} style={{ marginBottom: 12 }}>
+          <div className="row">
+            <span style={{ flex: 1 }}>
+              {site.displayName}：
+              {site.has ? `已設定（${site.domains} 個網域）` : '未設定'}
+            </span>
+            <button
+              onClick={() => toggleCookieSite(site.extractor, !site.enabled)}
+              disabled={!site.has || busy}
+              aria-pressed={site.enabled}
+            >
+              {site.enabled ? '停用' : '啟用'}
+            </button>
+          </div>
+          <textarea
+            aria-label={`${site.displayName} cookies`}
+            placeholder="貼上 cookies.txt 全文"
+            rows={3}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            value={cookieInputs[site.extractor] ?? ''}
+            disabled={busy}
+            onChange={(e) =>
+              setCookieInputs((o) => ({ ...o, [site.extractor]: e.target.value }))
+            }
+            style={{ width: '100%' }}
+          />
+          <div className="row">
+            <button onClick={() => saveCookieSite(site.extractor)} disabled={busy}>
+              {site.has ? '覆蓋儲存' : '儲存'}
+            </button>
+            <button
+              onClick={() => clearCookieSite(site.extractor)}
+              disabled={!site.has || busy}
+            >
+              清除
+            </button>
+          </div>
+        </div>
+      ))}
+      {cookieMsg !== '' && <p>{cookieMsg}</p>}
     </main>
   );
 }

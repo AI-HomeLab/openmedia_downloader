@@ -1,4 +1,4 @@
-# 音檔全環：切音檔 → 貼連結 → 解析 → 下載 → 完成
+# 音檔全環：貼連結 → 解析 → 下載音檔 → 完成（統一解析，不用切換）
 appId: com.openmedia.downloader
 ---
 - runFlow:
@@ -10,7 +10,7 @@ appId: com.openmedia.downloader
 - extendedWaitUntil:
     visible: "SoundHelix.*"
     timeout: 120000
-- tapOn: 下載
+- tapOn: 下載音檔
 - extendedWaitUntil:
     visible: "完成.*"
     timeout: 600000

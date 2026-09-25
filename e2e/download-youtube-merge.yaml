@@ -1,9 +1,10 @@
 # YouTube 分離抓取＋合併全環：解析 → 選畫質（分離式，自動合併）→ 下載 → 完成
 # 前提：YtDlpEngine wheel overlay（否則 YouTube 直連 403）
-# 註：Maestro 的 tapOn 其實走 regex 全比對，pattern 含中文會 miss，改用精確全文；
-# 另 SABR 每次回的格式是抽獎（連 720p 都會缺席），所以用「由小到大 optional 連點」：
-# 存在的才會點到，最後命中者（最大可用）留下來；1080p 放最後 required 保底。
-# 分離式必走合併（合併與否以 connected test 的 audio 軌斷言為準）。
+# 素材是自家 Shorts（3 秒）：畫質梯跟長片不同（256/426/640/854/1080/1280/1920）。
+# 畫質用「前綴 regex」選（檔名大小會浮動，認大小必 miss；tapOn 的 text 就是 regex）。
+# SABR 抽獎保險保留（由小到大 optional 連點，最後命中者留下），但每次滾動後
+# 必須等動畫結束再點——WebView 滾動中 a11y 邊界是 stale 的，曾誤觸 sticky CTA
+# 在 picked=0 預設下直接開下最高畫質。scroll 與 tap 分開，settle 後再點。
 appId: com.openmedia.downloader
 ---
 - runFlow:
@@ -11,29 +12,39 @@ appId: com.openmedia.downloader
 - runFlow:
     file: ./_common/resolve-video.yaml
     env:
-      URL: "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
+      URL: "https://www.youtube.com/shorts/tE0usg6bjJQ"
 - extendedWaitUntil:
-    visible: "Big Buck Bunny.*"
+    visible: "test video"
     timeout: 120000
+- scrollUntilVisible:
+    element: "256p mp4.*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 10000
 - tapOn:
-    text: "144p mp4・4.4 MB"
+    text: "256p mp4.*"
     optional: true
+- waitForAnimationToEnd:
+    timeout: 10000
+- scrollUntilVisible:
+    element: "640p mp4.*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 10000
 - tapOn:
-    text: "240p mp4・8.9 MB"
+    text: "640p mp4.*"
     optional: true
-- tapOn:
-    text: "360p mp4・17.4 MB"
-    optional: true
-- tapOn:
-    text: "480p mp4・26.9 MB"
-    optional: true
-- tapOn:
-    text: "720p mp4・143.6 MB"
-    optional: true
-- tapOn: "1080p mp4・245.7 MB"
-# 不自己 scroll：Maestro tapOn 會自動滾到可點位置；顯式 scrollUntilVisible
-# 反而讓後續 tap 卡住（WebView a11y 樹滾動後不穩定）。
-- tapOn: 下載
+- waitForAnimationToEnd:
+    timeout: 10000
+- scrollUntilVisible:
+    element: "1080p mp4.*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "1080p mp4.*"
+# 還在解析畫面才點下載（防誤觸開下後 radios 消失、後面全歪）。
+- assertVisible: 下載影片
+- tapOn: 下載影片
 - extendedWaitUntil:
     visible: "完成.*"
     timeout: 420000

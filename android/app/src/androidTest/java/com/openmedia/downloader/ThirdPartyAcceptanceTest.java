@@ -22,15 +22,33 @@ import java.util.List;
  */
 @RunWith(AndroidJUnit4.class)
 public class ThirdPartyAcceptanceTest {
-    // SpaceX Starship 靜態點火（74 秒），公開推文。
+    // 自家 X 短片（3 秒），公開推文。
     private static final String X_VIDEO =
-            "https://x.com/SpaceX/status/2072695632104468543";
-    // B 站公開短片（140 秒）。
+            "https://x.com/TsukiSama9292/status/2103494117791822160";
+    // 自家 B 站短片（3 秒，b23 短連）。
     private static final String BILIBILI_VIDEO =
-            "https://www.bilibili.com/video/BV1hy4y1D734";
+            "https://b23.tv/EQzrzUu";
     // 不存在的推文 ID：404，必定 EXTRACT。
     private static final String X_DELETED =
             "https://x.com/SpaceX/status/1";
+
+    /**
+     * 落地斷言（3 秒短片專用）：檔頭是 ftyp＋>4KB。
+     * 舊門檻 100KB 是 74 秒長片調出來的，短片正常只有幾十 KB（實測 B 站 720p 僅 9KB，
+     * 档頭 ftyp/isom 有效——驗的是「真媒體落地」不是「夠大」）。
+     */
+    private static void assertMediaLanded(File f) throws Exception {
+        assertTrue("檔案應落地", f.isFile() && f.length() > 4096);
+        byte[] head = new byte[8];
+        try (java.io.FileInputStream in = new java.io.FileInputStream(f)) {
+            int n = 0, r;
+            while (n < 8 && (r = in.read(head, n, 8 - n)) > 0) {
+                n += r;
+            }
+            assertTrue("應讀到檔頭", n == 8);
+        }
+        assertEquals("應為 mp4（ftyp）", "ftyp", new String(head, 4, 4, "US-ASCII"));
+    }
 
     @Test
     public void xResolvesSingleFile() throws Exception {
@@ -50,7 +68,7 @@ public class ThirdPartyAcceptanceTest {
     public void xDownloads() throws Exception {
         Context ctx = ApplicationProvider.getApplicationContext();
         ResolveResult r = ResolveEngine.resolve(ctx, X_VIDEO);
-        // 站差異：best 是 2160p（234MB），驗收用 720p 政策（跟整批同路）。
+        // 驗收用 720p 政策（跟整批同路）。
         VideoFormat picked = Downloader.pickByPolicy(r.videoOptions(), 720);
         if (picked == null) {
             fail("X 無可用畫質");
@@ -59,7 +77,7 @@ public class ThirdPartyAcceptanceTest {
         File f = Downloader.download(ctx, X_VIDEO, outDir, picked.formatId, "video", null);
         android.util.Log.w("Accept07", "X saved=" + f.getAbsolutePath()
                 + " size=" + f.length() + " picked=" + picked.formatId);
-        assertTrue(f.isFile() && f.length() > 100 * 1024);
+        assertMediaLanded(f);
     }
 
     @Test
@@ -91,7 +109,7 @@ public class ThirdPartyAcceptanceTest {
                 picked.formatId, "video", null);
         android.util.Log.w("Accept07", "Bili saved=" + f.getAbsolutePath()
                 + " size=" + f.length() + " picked=" + picked.formatId);
-        assertTrue(f.isFile() && f.length() > 100 * 1024);
+        assertMediaLanded(f);
     }
 
     @Test

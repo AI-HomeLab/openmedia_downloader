@@ -45,7 +45,7 @@ public class QualityDownloadTest {
     public void videoOnlyMergesWithCompanion() throws Exception {
         Context ctx = ApplicationProvider.getApplicationContext();
         ResolveResult r = ResolveEngine.resolve(ctx,
-                "https://www.youtube.com/watch?v=aqz-KE-bpKQ");
+                "https://www.youtube.com/shorts/tE0usg6bjJQ");
         File outDir = new File(ctx.getCacheDir(),
                 "merge-" + System.currentTimeMillis());
         StringBuilder tried = new StringBuilder();
@@ -55,7 +55,7 @@ public class QualityDownloadTest {
             }
             try {
                 File landed = Downloader.download(ctx,
-                        "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+                        "https://www.youtube.com/shorts/tE0usg6bjJQ",
                         outDir, f.formatId, "video", null);
                 assertTrue("合併檔應落地", landed.exists() && landed.length() > 0);
                 assertTrue("應為 mp4", landed.getName().endsWith(".mp4"));

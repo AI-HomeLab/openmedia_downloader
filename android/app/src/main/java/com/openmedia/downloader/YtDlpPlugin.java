@@ -252,6 +252,127 @@ public class YtDlpPlugin extends Plugin {
         });
     }
 
+    /** Cookie 設定（ticket cookie-login/01）：三站 session 的存取開關。內容絕不 Log。 */
+    private volatile CookieStore cookieStore;
+
+    private CookieStore cookies() throws DownloadException {
+        if (cookieStore == null) {
+            synchronized (this) {
+                if (cookieStore == null) {
+                    try {
+                        cookieStore = new CookieStore(getContext());
+                    } catch (Exception e) {
+                        throw new DownloadException(
+                                DownloadError.STORAGE, "安全儲存不可用", e);
+                    }
+                }
+            }
+        }
+        return cookieStore;
+    }
+
+    private static String requireExtractor(PluginCall call) throws DownloadException {
+        String extractor = call.getString("extractor", "");
+        if (!CookieStore.isKnownExtractor(extractor)) {
+            throw new DownloadException(DownloadError.UNKNOWN, "不支援的站點");
+        }
+        return extractor;
+    }
+
+    @PluginMethod
+    public void saveCookie(PluginCall call) {
+        // KeyStore 初始化數百 ms，走 background（與 resolve 同模式）。
+        final String callbackId = call.getCallbackId();
+        getBridge().saveCall(call);
+        executor.submit(() -> {
+            try {
+                String extractor = requireExtractor(call);
+                String text = call.getString("text", "");
+                CookieStore store = cookies();
+                store.save(extractor, text);
+                JSObject data = new JSObject();
+                data.put("domains", CookieStore.domainCount(text));
+                finishSaved(callbackId, (saved) -> saved.resolve(data));
+            } catch (DownloadException e) {
+                finishSaved(callbackId, (saved) -> saved.reject(e.getMessage(), e.getCode().name()));
+            } catch (Throwable t) {
+                android.util.Log.e("YtDlpPlugin", "saveCookie 意外失敗", t);
+                finishSaved(callbackId, (saved) -> saved.reject(
+                        "儲存失敗", DownloadError.UNKNOWN.name()));
+            }
+        });
+    }
+
+    @PluginMethod
+    public void clearCookie(PluginCall call) {
+        final String callbackId = call.getCallbackId();
+        getBridge().saveCall(call);
+        executor.submit(() -> {
+            try {
+                String extractor = requireExtractor(call);
+                cookies().clear(extractor);
+                finishSaved(callbackId, PluginCall::resolve);
+            } catch (DownloadException e) {
+                finishSaved(callbackId, (saved) -> saved.reject(e.getMessage(), e.getCode().name()));
+            } catch (Throwable t) {
+                android.util.Log.e("YtDlpPlugin", "clearCookie 意外失敗", t);
+                finishSaved(callbackId, (saved) -> saved.reject(
+                        "清除失敗", DownloadError.UNKNOWN.name()));
+            }
+        });
+    }
+
+    @PluginMethod
+    public void setCookieEnabled(PluginCall call) {
+        final String callbackId = call.getCallbackId();
+        getBridge().saveCall(call);
+        executor.submit(() -> {
+            try {
+                String extractor = requireExtractor(call);
+                boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", false));
+                cookies().setEnabled(extractor, enabled);
+                finishSaved(callbackId, PluginCall::resolve);
+            } catch (DownloadException e) {
+                finishSaved(callbackId, (saved) -> saved.reject(e.getMessage(), e.getCode().name()));
+            } catch (Throwable t) {
+                android.util.Log.e("YtDlpPlugin", "setCookieEnabled 意外失敗", t);
+                finishSaved(callbackId, (saved) -> saved.reject(
+                        "切換失敗", DownloadError.UNKNOWN.name()));
+            }
+        });
+    }
+
+    @PluginMethod
+    public void getCookieStatus(PluginCall call) {
+        final String callbackId = call.getCallbackId();
+        getBridge().saveCall(call);
+        executor.submit(() -> {
+            try {
+                CookieStore store = cookies();
+                JSArray arr = new JSArray();
+                for (String extractor : CookieStore.EXTRACTORS) {
+                    JSObject o = new JSObject();
+                    o.put("extractor", extractor);
+                    o.put("displayName", CookieStore.displayName(extractor));
+                    o.put("has", store.has(extractor));
+                    o.put("enabled", store.isEnabled(extractor));
+                    String saved = store.load(extractor);
+                    o.put("domains", saved == null ? 0 : CookieStore.domainCount(saved));
+                    arr.put(o);
+                }
+                JSObject data = new JSObject();
+                data.put("sites", arr);
+                finishSaved(callbackId, (saved) -> saved.resolve(data));
+            } catch (DownloadException e) {
+                finishSaved(callbackId, (saved) -> saved.reject(e.getMessage(), e.getCode().name()));
+            } catch (Throwable t) {
+                android.util.Log.e("YtDlpPlugin", "getCookieStatus 意外失敗", t);
+                finishSaved(callbackId, (saved) -> saved.reject(
+                        "讀取失敗", DownloadError.UNKNOWN.name()));
+            }
+        });
+    }
+
     /**
      * 整批下載（ticket 06）：URL 必須跟上次掃描一致；kind=video|audio；
      * maxHeight=整批預設上限；overrides={videoId:maxHeight} 逐項覆寫。

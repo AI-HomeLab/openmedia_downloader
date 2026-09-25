@@ -10,7 +10,7 @@ appId: com.openmedia.downloader
 - extendedWaitUntil:
     visible: "Big_Buck_Bunny.*"
     timeout: 120000
-- tapOn: 下載
+- tapOn: 下載影片
 - extendedWaitUntil:
     visible: "完成.*"
     timeout: 180000
