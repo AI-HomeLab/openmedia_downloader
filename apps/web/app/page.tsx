@@ -424,6 +424,26 @@ export default function Home() {
       )}
       <h2>Cookie 登入</h2>
       <p>從瀏覽器匯出 cookies.txt 貼上，登入牆內容才能抓。各站獨立開關。</p>
+      <div className="row">
+        <button
+          onClick={async () => {
+            setCookieMsg('');
+            for (const site of cookieSites ?? []) {
+              try {
+                await YtDlp.clearCookie({ extractor: site.extractor });
+              } catch {
+                // 單站失敗不擋其他站。
+              }
+            }
+            setCookieInputs({});
+            await refreshCookieStatus();
+            setCookieMsg('已全部清除');
+          }}
+          disabled={busy}
+        >
+          全部清除
+        </button>
+      </div>
       {(cookieSites ?? []).map((site) => (
         <div key={site.extractor} style={{ marginBottom: 12 }}>
           <div className="row">

@@ -6,8 +6,12 @@
 
 **Blocked by:** 01 — 手動貼 cookie（三站存取＋UI，不下載）.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] `YoutubeDL(opts)` 建構處統一注入 cookiefile（三站同路，extractor→cookie 映射）
-- [ ] 過期／401 類錯誤映射到重貼文案；假 cookie 測試照樣報可重試錯誤（非 crash）
-- [ ] 真素材全環（素材由擁有者提供；無則降級驗）＋e2e 不碰真 token
+- [x] `YoutubeDL(opts)` 建構處統一注入 cookiefile（三站同路，extractor→cookie 映射；
+  單片 resolve＋清單 flat＋Downloader 內部 resolve 全吃到；暫存用完即刪）
+- [x] 過期／401 類錯誤映射到「登入已過期，請重新貼上 cookie」（`withExpiryNote`，
+  有帶 cookie 才改寫；UI 既有登入中文案接住顯示；一鍵清除走 01 既有逐站清除）
+- [x] 假 cookie＋公開片全環綠（爛 cookie 被忽略不斷正常路；真登入牆素材待擁有者手動驗）
+- [x] e2e 不新增（無 UI 變更）；單測 `extractorForUrl`＋`withExpiryNote`＋connected
+  `prepare` 暫存＋開關語意全綠

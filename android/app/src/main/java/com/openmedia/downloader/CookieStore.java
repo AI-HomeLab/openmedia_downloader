@@ -55,6 +55,37 @@ public class CookieStore {
         return false;
     }
 
+    /**
+     * URL→extractor（ticket 02：選 cookie 前先知道是哪站）。
+     * 比 host（equals／.字尾），不用子字串——`x.com` 會誤中 `linux.com`，
+     * 送錯站的 session 是憑證外送事故。純函式，可單測。
+     */
+    public static String extractorForUrl(String url) {
+        String host;
+        try {
+            host = new java.net.URI(url == null ? "" : url).getHost();
+        } catch (Exception e) {
+            return "";
+        }
+        if (host == null) {
+            return "";
+        }
+        host = host.toLowerCase(Locale.US);
+        if (host.equals("youtube.com") || host.endsWith(".youtube.com")
+                || host.equals("youtu.be")) {
+            return YOUTUBE;
+        }
+        if (host.equals("bilibili.com") || host.endsWith(".bilibili.com")
+                || host.equals("b23.tv")) {
+            return BILIBILI;
+        }
+        if (host.equals("x.com") || host.endsWith(".x.com")
+                || host.equals("twitter.com") || host.endsWith(".twitter.com")) {
+            return TWITTER;
+        }
+        return "";
+    }
+
     public static String displayName(String extractor) {
         if (YOUTUBE.equals(extractor)) {
             return "YouTube";
