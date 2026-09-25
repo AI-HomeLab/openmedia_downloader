@@ -6,6 +6,17 @@ on:
   pull_request:
   push:
     branches: [main]
+    # 合併文件類 PR 不重編一次（PR 上已經驗過）：只在碰到程式／依賴／CI 本體時跑。
+    paths:
+      - 'android/**'
+      - 'apps/web/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.node-version'
+      - 'capacitor.config.ts'
+      - '.github/workflows/ci.yml'
 
 jobs:
   test-build:
