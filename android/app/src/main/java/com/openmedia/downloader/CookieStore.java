@@ -110,12 +110,15 @@ public class CookieStore {
         String[] lines = text.split("[\\r\\n]+");
         String header = "";
         for (String line : lines) {
-            if (!line.trim().isEmpty()) {
-                header = line;
+            // 去 BOM：有些匯出工具存成 UTF-8 with BOM，trim 去不掉 \uFEFF。
+            String t = line.replace("\uFEFF", "").trim();
+            if (!t.isEmpty()) {
+                header = t;
                 break;
             }
         }
-        if (!header.contains("Netscape HTTP Cookie File")) {
+        // Netscape 變體檔頭都接受（"Get cookies.txt" 等工具只寫 HTTP Cookie File）。
+        if (!header.contains("Cookie File")) {
             throw new DownloadException(DownloadError.EXTRACT, "不是 cookies.txt 格式");
         }
         for (String line : lines) {
@@ -127,7 +130,8 @@ public class CookieStore {
                 return;
             }
         }
-        throw new DownloadException(DownloadError.EXTRACT, "沒有有效的 cookie 條目");
+        throw new DownloadException(DownloadError.EXTRACT,
+                "沒有有效的 cookie 條目（欄位要用 Tab 分隔；從聊天軟體複製容易把 Tab 洗成空格）");
     }
 
     /** 去重網域數（UI 狀態顯示用；前導點去掉）。純函式。 */

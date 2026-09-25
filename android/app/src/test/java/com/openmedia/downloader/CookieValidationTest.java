@@ -27,6 +27,23 @@ public class CookieValidationTest {
     }
 
     @Test
+    public void acceptsHttpCookieFileVariantHeader() throws Exception {
+        // 有些匯出工具的檔頭沒有 Netscape 字樣。
+        CookieStore.validate("# HTTP Cookie File\n.x.com\tTRUE\t/\tTRUE\t1\ta\tb\n");
+    }
+
+    @Test
+    public void spacesInsteadOfTabsHintInMessage() {
+        // 從聊天軟體複製容易把 Tab 洗成空格：錯誤訊息要直接點出來。
+        try {
+            CookieStore.validate("# Netscape HTTP Cookie File\n.x.com TRUE / TRUE 1 a b\n");
+            fail("應擋下");
+        } catch (DownloadException e) {
+            assertTrue(e.getMessage().contains("Tab"));
+        }
+    }
+
+    @Test
     public void rejectsEmpty() {
         try {
             CookieStore.validate("  \n ");
