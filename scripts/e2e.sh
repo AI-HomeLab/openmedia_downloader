@@ -77,7 +77,52 @@ done < <(mc_list | grep "^Row" || true)
 echo "清場後殘留：$(mc_list | grep -cE "SoundHelix|Big_Buck_Bunny|test video" || true)（應為 0）"
 
 echo "== maestro test e2e/ =="
-maestro test "$ROOT/e2e/"
+# ANR/無回應系統對話框（CI 常見 Pixel Launcher ANR）會蓋住整個畫面：
+# Maestro 的 visible 斷言認被蓋住的元素為不可見，一個框毒死後面所有 flow。
+# 看到就點 Wait（保 Launcher 活著，只關框）。uiautomator 抓字取座標，
+# 跟解析度無關（CI 320x640／本地 1080x2400 通吃）；沒有框就是 no-op。
+sweep_anr() {
+  local xml bounds x1 y1 x2 y2 round
+  for round in 1 2 3; do
+    xml="$(adb shell uiautomator dump /sdcard/sweep.xml < /dev/null 2>/dev/null \
+      && adb shell cat /sdcard/sweep.xml < /dev/null 2>/dev/null)" || return 0
+    if ! echo "$xml" | grep -q "isn't responding"; then
+      return 0
+    fi
+    bounds="$(echo "$xml" \
+      | grep -o 'text="Wait"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' \
+      | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | head -n 1)"
+    if [ -z "$bounds" ]; then
+      return 0
+    fi
+    x1="$(echo "$bounds" | cut -d[ -f2 | cut -d, -f1)"
+    y1="$(echo "$bounds" | cut -d, -f2 | cut -d] -f1)"
+    x2="$(echo "$bounds" | cut -d[ -f3 | cut -d, -f1)"
+    y2="$(echo "$bounds" | cut -d, -f3 | cut -d] -f1)"
+    echo "ANR 對話框擋路，點 Wait（$(( (x1 + x2) / 2 )),$(( (y1 + y2) / 2 ))）"
+    adb shell input tap "$(( (x1 + x2) / 2 ))" "$(( (y1 + y2) / 2 ))" < /dev/null || true
+    sleep 5
+  done
+  return 0
+}
+
+# 逐流跑（不一次 `maestro test e2e/`）：單流紅了也續行＋每流前 sweep，
+# 一個 ANR／一次抖動不再整輪陪葬；失敗集中最後一次報。
+sweep_anr
+flow_fail=0
+for flow in "$ROOT"/e2e/*.yaml; do
+  echo "-- flow: $(basename "$flow")"
+  if maestro test "$flow"; then
+    echo "FLOW OK: $(basename "$flow")"
+  else
+    echo "FLOW FAIL: $(basename "$flow")"
+    flow_fail=1
+  fi
+  sweep_anr
+done
+if [ "$flow_fail" -ne 0 ]; then
+  echo "e2e 有 flow 失敗（檔案斷言照跑，方便一次看完）"
+fi
 
 echo "== 斷言檔案落地 =="
 fail=0
@@ -102,8 +147,8 @@ for spec in "${EXPECT[@]}"; do
     fail=1
   fi
 done
-if [ "$fail" -ne 0 ]; then
-  echo "e2e 檔案斷言失敗"
+if [ "$fail" -ne 0 ] || [ "$flow_fail" -ne 0 ]; then
+  echo "e2e 失敗（flow 或檔案斷言）"
   exit 1
 fi
 echo "e2e 全過（含檔案落地斷言）"
