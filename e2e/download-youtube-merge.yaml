@@ -1,8 +1,9 @@
-# YouTube 分離抓取＋合併全環：解析 → 選 720p mp4（分離式，自動合併）→ 下載 → 完成
+# YouTube 分離抓取＋合併全環：解析 → 選畫質（分離式，自動合併）→ 下載 → 完成
 # 前提：YtDlpEngine wheel overlay（否則 YouTube 直連 403）
 # 註：Maestro 的 tapOn 其實走 regex 全比對，pattern 含中文會 miss，改用精確全文；
-# 另 SABR 每次回的格式是抽獎（連常駐的 480p/360p 都會缺席），720p mp4・143.6 MB
-# 是目前唯一每次都在的；分離式必走合併（合併與否以 connected test 的 audio 軌斷言為準）。
+# 另 SABR 每次回的格式是抽獎（連 720p 都會缺席），所以用「由小到大 optional 連點」：
+# 存在的才會點到，最後命中者（最大可用）留下來；1080p 放最後 required 保底。
+# 分離式必走合併（合併與否以 connected test 的 audio 軌斷言為準）。
 appId: com.openmedia.downloader
 ---
 - runFlow:
@@ -14,7 +15,22 @@ appId: com.openmedia.downloader
 - extendedWaitUntil:
     visible: "Big Buck Bunny.*"
     timeout: 120000
-- tapOn: "720p mp4・143.6 MB"
+- tapOn:
+    text: "144p mp4・4.4 MB"
+    optional: true
+- tapOn:
+    text: "240p mp4・8.9 MB"
+    optional: true
+- tapOn:
+    text: "360p mp4・17.4 MB"
+    optional: true
+- tapOn:
+    text: "480p mp4・26.9 MB"
+    optional: true
+- tapOn:
+    text: "720p mp4・143.6 MB"
+    optional: true
+- tapOn: "1080p mp4・245.7 MB"
 # 不自己 scroll：Maestro tapOn 會自動滾到可點位置；顯式 scrollUntilVisible
 # 反而讓後續 tap 卡住（WebView a11y 樹滾動後不穩定）。
 - tapOn: 下載
