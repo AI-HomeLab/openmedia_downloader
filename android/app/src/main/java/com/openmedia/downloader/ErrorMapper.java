@@ -34,7 +34,7 @@ public final class ErrorMapper {
                 "not available in your country", "requested format not available",
                 "unsupported url", "no video formats found", "unable to extract",
                 "http error 403", "http error 429", "http 403", "http 429",
-                "forbidden", "需要登录", "需要登入", "请先登录", "請先登入", "大會員", "大会员",
+                "forbidden", "rate-limit", "rate limit", "too many requests", "需要登录", "需要登入", "请先登录", "請先登入", "大會員", "大会员",
                 "付费", "付費", "login", "no video could be found")) {
             return DownloadError.EXTRACT;
         }

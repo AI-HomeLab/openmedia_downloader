@@ -19,6 +19,20 @@ public final class ResolveEngine {
     private ResolveEngine() {
     }
 
+    /**
+     * 底層錯誤收斂：code 照 mapper，訊息保留 yt-dlp 原文首行（截斷＋去換行，
+     * 避免 token／長 traceback 進 UI）。純函式，可單測。
+     */
+    static ResolveException wrapFailure(Exception e) {
+        String raw = e.getMessage() == null ? "" : e.getMessage();
+        String firstLine = raw.split("[\\r\\n]+")[0].trim();
+        if (firstLine.length() > 160) {
+            firstLine = firstLine.substring(0, 160) + "…";
+        }
+        String message = firstLine.isEmpty() ? "解析失敗" : "解析失敗：" + firstLine;
+        return new ResolveException(ErrorMapper.fromMessage(e.getMessage()), message, e);
+    }
+
     public static ResolveResult resolve(android.content.Context context, String url)
             throws ResolveException {
         return resolve(context, url, true);
@@ -68,8 +82,7 @@ public final class ResolveEngine {
         } catch (Exception e) {
             // 原因記 logcat（CI 上抓 resolve 失敗根因用）。
             android.util.Log.w("ResolveEngine", "resolve 失敗: " + e);
-            throw new ResolveException(
-                    ErrorMapper.fromMessage(e.getMessage()), "解析失敗", e);
+            throw wrapFailure(e);
         }
     }
 
@@ -109,8 +122,7 @@ public final class ResolveEngine {
         } catch (ResolveException e) {
             throw e;
         } catch (Exception e) {
-            throw new ResolveException(
-                    ErrorMapper.fromMessage(e.getMessage()), "解析失敗", e);
+            throw wrapFailure(e);
         }
     }
 }
