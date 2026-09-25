@@ -18,6 +18,13 @@ AVD="omd-$API"
 
 case "${1:-status}" in
   up)
+    # CI 跑時本地不開機（同機互踩血淚史，見 emu-lock.sh）。
+    # 以 qemu 本體 pid 佔鎖（up 腳本自己會先退，用 $$ 沒意義）。
+    EMU_PID="$(pgrep -f "qemu.*-avd $AVD" | head -n 1 || true)"
+    if [ -z "$EMU_PID" ]; then
+      EMU_PID="$$"
+    fi
+    bash "$(dirname "${BASH_SOURCE[0]}")/emu-lock.sh" acquire "local" "$EMU_PID" || exit 1
     if ! adb devices | grep -q "emulator-"; then
       setsid emulator -avd "$AVD" -no-window -no-audio -no-boot-anim \
         -memory 3072 -gpu swiftshader_indirect -no-snapshot \
@@ -28,6 +35,11 @@ case "${1:-status}" in
     for _ in $(seq 1 60); do
       if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
         adb devices
+        # 開完把鎖換到 qemu 本體 pid（up 腳本退了鎖才不會變殘留）。
+        QEMU_PID="$(pgrep -f "qemu.*-avd $AVD" | head -n 1 || true)"
+        if [ -n "$QEMU_PID" ]; then
+          bash "$(dirname "${BASH_SOURCE[0]}")/emu-lock.sh" refresh "local" "$QEMU_PID"
+        fi
         exit 0
       fi
       sleep 5
@@ -40,6 +52,7 @@ case "${1:-status}" in
       adb -s "$d" emu kill || true
     done
     pkill -f "qemu-system.*$AVD" || true
+    bash "$(dirname "${BASH_SOURCE[0]}")/emu-lock.sh" release "local" || true
     echo "emulators down"
     ;;
   *)
