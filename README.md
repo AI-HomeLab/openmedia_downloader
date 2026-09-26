@@ -1,4 +1,4 @@
-# openmedia
+# OpenMedia
 
 ## 1. 解決什麼問題？
 
