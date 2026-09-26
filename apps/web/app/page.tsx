@@ -330,7 +330,7 @@ export default function Home() {
 
   return (
     <main>
-      <h1>OpenMedia</h1>
+      <h1>openmedia</h1>
       <input
         type="text"
         inputMode="url"

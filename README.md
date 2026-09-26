@@ -1,4 +1,4 @@
-# OpenMedia Downloader
+# openmedia
 
 ## 1. 解決什麼問題？
 
@@ -78,8 +78,13 @@
 
 ## 5. 侷限性（有實證才寫）
 
-實證基礎：單測 37＋connected 常駐＋`pnpm e2e` 6 流，API 29/33/35 映像皆跑過。
+實證基礎：單測 61＋connected 常駐＋`pnpm e2e` 7 流，API 29/33/35 映像皆跑過。
 **但全部都在模擬器（x86_64）驗的，沒上過 arm64 真機**，這是目前最大盲點。
+
+- **支援平台（端到端實測）**：YouTube、X、Bilibili；其餘站點不做測試（能解就用，不保證）。
+  支援的三站皆可在設定區貼 `cookies.txt` 登入。
+- **ABI**：僅 `arm64-v8a`＋`x86_64`（32-bit 舊機不支援；免費版 yt-dlp-android 只包這兩個）。
+- **測試素材**：3 秒黑底測試片（作者本人上傳、無版權疑慮），單片／音檔／合併／整批全鏈共用。
 
 - **YouTube 靠 overlay 續命**：AAR 內建 yt-dlp 已跟不上，YouTube 服務端再改版就要 bump
   （流程見 `.scratch/archive/multi-site-download-v1/issues/09-ytdlp-overlay-upgrade.md`）。

@@ -6,5 +6,5 @@ appId: com.openmedia.downloader
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: OpenMedia
+    visible: openmedia
     timeout: 120000

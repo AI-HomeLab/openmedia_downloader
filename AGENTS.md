@@ -1,4 +1,4 @@
-# AGENTS.md — OpenMedia Downloader
+# AGENTS.md — openmedia
 
 Android APK（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin → yt-dlp-android）。
 產品說明看 README（解決什麼／架構／依賴／侷限／授權）；規範由 `opencode.jsonc`
