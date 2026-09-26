@@ -101,20 +101,21 @@ jobs:
             if [ -n "$PREV" ]; then
               RANGE="$(git log --format=%H "$PREV..$REF" | tr '\n' ' ')"
               FOUND=0
-              while read -r num title oid; do
+              while IFS="$(printf '\t')" read -r num author url oid title; do
                 case " $RANGE " in
-                  *" $oid "*) echo "- #$num $title"; FOUND=1 ;;
+                  *" $oid "*) echo "- #$num $title (@$author) $url"; FOUND=1 ;;
                 esac
               done < <(gh pr list --state merged --base main --limit 50 \
-                --json number,title,mergeCommit --jq '.[] | "\(.number) \(.title) \(.mergeCommit.oid)"' 2>/dev/null || true)
+                --json number,title,author,url,mergeCommit \
+                --jq '.[] | "\(.number)\t\(.author.login)\t\(.url)\t\(.mergeCommit.oid)\t\(.title)"' 2>/dev/null || true)
               [ "$FOUND" -eq 0 ] && echo "（無）"
               echo
-              echo "### Commits（第一句）"
+              echo "### Commits"
               git log --format='- %h %s' "$PREV..$REF"
             else
               echo "（無）"
               echo
-              echo "### Commits（第一句）"
+              echo "### Commits"
               echo "（無）"
             fi
           } > /tmp/release-notes.md
