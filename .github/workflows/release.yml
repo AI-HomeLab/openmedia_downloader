@@ -14,6 +14,8 @@ permissions:
 
 jobs:
   release:
+    # *-debug tag 是 debug-release.yml 的地盤（也會推 tag 上來），正式發版跳過。
+    if: ${{ !endsWith(github.ref, '-debug') }}
     runs-on: ubuntu-latest
     env:
       GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-home
