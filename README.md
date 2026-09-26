@@ -6,8 +6,7 @@
 不用開電腦、不用接一堆轉檔工具。這個 App 就是做這件事的：
 **貼連結 → 選畫質 → 下載 → 存到手機 Downloads**，單片、整批清單、轉 mp3 都包。
 
-起點是桌機跑的一個 Gradio 範本（`download_yt_video_or_audio.ipynb`，已封存，
-只用來理解舊行為），第一版把它重做成手機原生體驗的 APK。
+起點是桌機跑的一個 Gradio 範本（檔案已移除），第一版把它重做成手機原生體驗的 APK。
 
 ## 2. 如何解決？用了哪些技術？
 
@@ -62,7 +61,6 @@
 ├── scripts/                # gradle.sh / emulator.sh / e2e.sh / setup.sh
 ├── .tools/                 # 本地 JDK 21＋SDK（不進版控）
 ├── .scratch/               # spec＋tickets（01–15）
-└── download_yt_video_or_audio.ipynb  # 封存參考
 ```
 
 ## 4. 依賴（第三方元件清單）

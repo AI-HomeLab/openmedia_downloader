@@ -21,8 +21,8 @@ Hard-won pitfalls。動到對應層之前先看這一節。
 
 ## yt-dlp-android / Chaquopy / yt-dlp
 
-- `download_yt_video_or_audio.ipynb` 是封存參考，不要把 Gradio / `queue.Queue` / `threading` 那套
-  直接搬進 Android。Android 端只認 Plugin 介面 + yt-dlp-android 的呼叫方式。
+- 舊 Gradio 範本的 `queue.Queue` / `threading` 那套不要直接搬進 Android。
+  Android 端只認 Plugin 介面 + yt-dlp-android 的呼叫方式。
 - Chaquopy / Python 只初始化一次。每次 download 都 init 會變慢 + 爆記憶體，視為 bug。
 - yt-dlp-android、Chaquopy、yt-dlp 本體只做版本 pin，不 fork、不手改內部；升級要開獨立 ticket 並在實機重測全流程。
 - 舊 notebook 的 `format_id` 白名單（571/628/…）是 YouTube 當下快照，會過期。

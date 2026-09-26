@@ -55,7 +55,7 @@ Android APK（Next.js UI → Capacitor WebView → 自訂 YtDlp Plugin → yt-dl
   Chaquopy/CPython/yt-dlp 本體（AAR 內建版太舊，用 `assets/ytdlp/` wheel 疊加蓋掉，
   見 `.scratch/archive/multi-site-download-v1/issues/09-ytdlp-overlay-upgrade.md`）。
   FFmpeg 可開關，缺席要有 fallback。
-- `download_yt_video_or_audio.ipynb` 是封存參考；`format_id` 白名單已過期，改用解析度語意選 format。
+- 不要 hardcode `format_id` 白名單（舊 Gradio 範本的快照，已過期），改用解析度語意選 format。
 - 錯誤碼全 repo 一致：`NETWORK / EXTRACT / STORAGE / CANCELLED / POSTPROCESS / UNKNOWN`。
 - 授權：Unlicense（見 `UNLICENSE`＋README 授權節）；第三方元件授權各歸各，散佈前自行確認。
 

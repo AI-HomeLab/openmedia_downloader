@@ -7,8 +7,8 @@
 
 - 本專案是 **Android APK 專案**，不是純 Web 專案。
 - UI 用 **Next.js** 開發，最終跑在 Android 手機 WebView 並包成 APK。
-- `download_yt_video_or_audio.ipynb`（Gradio 範本）是**封存參考**：只用來理解舊行為，
-  不再新增功能、不直接移植 Python/Gradio 程式碼。新功能以手機 UX 為準。
+- 舊 Gradio 範本（檔案已移除）只用來理解舊行為，不再新增功能、
+  不直接移植 Python/Gradio 程式碼。新功能以手機 UX 為準。
 - 使用者-facing 說明用**繁體中文**，專有名詞（Capacitor、Plugin、yt-dlp 等）保持英文。
 
 ## 2. 架構與權責邊界（必讀）
