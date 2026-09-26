@@ -2,6 +2,9 @@
 # 私鑰只活在 Secrets＋runner 暫存：ANDROID_KEYSTORE_BASE64／KEYSTORE_PASSWORD／
 # KEY_ALIAS／KEY_PASSWORD（擁有者去 GitHub 網頁填，見 ticket 02）。
 # 沒配 secret 也能跑全鏈（產物為 unsigned，僅驗證用）。
+# Prerelease：tag 帶 -debug／-alpha／-beta／-rc／-preview 後綴即標 prerelease
+#（取代已刪除的 debug-release.yml：要可安裝的測試包就打 vX.Y.Z-debug）。
+# Release 內文自動抓「與上個 release 的差異」：合併的 PR＋commit 第一句。
 name: release
 
 on:
@@ -14,8 +17,6 @@ permissions:
 
 jobs:
   release:
-    # *-debug tag 是 debug-release.yml 的地盤（也會推 tag 上來），正式發版跳過。
-    if: ${{ !endsWith(github.ref, '-debug') }}
     runs-on: ubuntu-latest
     env:
       GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-home
@@ -23,6 +24,9 @@ jobs:
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 差異訊息要看到上個 tag（預設淺抓沒有祖先，describe 直接炸）。
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -79,9 +83,48 @@ jobs:
         run: |
           if [ "$HAS_KEYSTORE" = "true" ]; then echo "signed build"; else echo "unsigned build (no secrets configured)"; fi
 
+      - name: Resolve flags＋差異訊息（與上個 release 比）
+        id: notes
+        run: |
+          REF="${GITHUB_REF_NAME}"
+          case "$REF" in
+            *-debug|*-alpha*|*-beta*|*-rc*|*-preview*) PRE=true ;;
+            *) PRE=false ;;
+          esac
+          echo "prerelease=$PRE" >> "$GITHUB_OUTPUT"
+          # 上個 tag：本 tag 父節點往回找（首版就沒有，內文寫首個版本）。
+          PREV="$(git describe --tags --abbrev=0 "${REF}^" 2>/dev/null || true)"
+          {
+            echo "## 與 ${PREV:-（首個版本）} 的差異"
+            echo
+            echo "### PR"
+            if [ -n "$PREV" ]; then
+              RANGE="$(git log --format=%H "$PREV..$REF" | tr '\n' ' ')"
+              FOUND=0
+              while read -r num title oid; do
+                case " $RANGE " in
+                  *" $oid "*) echo "- #$num $title"; FOUND=1 ;;
+                esac
+              done < <(gh pr list --state merged --base main --limit 50 \
+                --json number,title,mergeCommit --jq '.[] | "\(.number) \(.title) \(.mergeCommit.oid)"' 2>/dev/null || true)
+              [ "$FOUND" -eq 0 ] && echo "（無）"
+              echo
+              echo "### Commits（第一句）"
+              git log --format='- %h %s' "$PREV..$REF"
+            else
+              echo "（無）"
+              echo
+              echo "### Commits（第一句）"
+              echo "（無）"
+            fi
+          } > /tmp/release-notes.md
+          echo "body=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
+
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
+          prerelease: ${{ steps.notes.outputs.prerelease }}
+          body_path: ${{ steps.notes.outputs.body }}
           # unsigned 時檔名是 app-release-unsigned.apk，有簽章才是 app-release.apk。
           files: |
             android/app/build/outputs/apk/release/*.apk
